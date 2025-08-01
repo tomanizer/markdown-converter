@@ -1,0 +1,21 @@
+# Test dependencies
+
+# Include base requirements
+-r base.txt
+
+# Testing framework
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+pytest-xdist>=3.0.0
+pytest-benchmark>=4.0.0
+
+# Test data and fixtures
+factory-boy>=3.2.0
+faker>=18.0.0
+
+# Coverage reporting
+coverage>=7.0.0
+
+# Performance testing
+memory-profiler>=0.60.0
