@@ -32,7 +32,7 @@ This document provides instructions for using GitHub Copilot effectively with th
 # Context: Implementing a document parser for markdown-converter
 # Requirements: Extract ALL information, preserve tables, handle errors gracefully
 # Architecture: Use pandoc as primary, format-specific parsers as fallback
-# Code Style: Type hints, Google docstrings, error handling with tenacity
+# Code Style: Type hints, reStructuredText docstrings, logging (no print), error handling with tenacity
 ```
 
 ### **When Adding Error Handling**
@@ -94,35 +94,45 @@ src/markdown_converter/
 
 ### **Parser Implementation Pattern**
 ```python
+import structlog
+from typing import Optional
+
+logger = structlog.get_logger()
+
 class WordParser:
     """Parse Word documents to markdown with fallback strategies."""
     
     def convert(self, file_path: str) -> str:
         """Convert Word document to markdown.
         
-        Args:
-            file_path: Path to Word document
-            
-        Returns:
-            str: Markdown content
-            
-        Raises:
-            ConversionError: If all conversion methods fail
+        :param file_path: Path to Word document
+        :type file_path: str
+        :return: Markdown content
+        :rtype: str
+        :raises ConversionError: If all conversion methods fail
         """
+        logger.info("Starting Word document conversion", file_path=file_path)
+        
         # Try pandoc first
         try:
-            return self._convert_with_pandoc(file_path)
+            result = self._convert_with_pandoc(file_path)
+            logger.info("Word conversion successful with pandoc", file_path=file_path)
+            return result
         except Exception as e:
-            logger.warning(f"Pandoc failed: {e}")
+            logger.warning("Pandoc failed, trying python-docx", file_path=file_path, error=str(e))
             
         # Try format-specific parser
         try:
-            return self._convert_with_python_docx(file_path)
+            result = self._convert_with_python_docx(file_path)
+            logger.info("Word conversion successful with python-docx", file_path=file_path)
+            return result
         except Exception as e:
-            logger.warning(f"python-docx failed: {e}")
+            logger.warning("python-docx failed, extracting all text", file_path=file_path, error=str(e))
             
         # Last resort: extract all text
-        return self._extract_all_text(file_path)
+        result = self._extract_all_text(file_path)
+        logger.info("Word conversion completed with text extraction", file_path=file_path)
+        return result
 ```
 
 ### **Error Handling Pattern**
