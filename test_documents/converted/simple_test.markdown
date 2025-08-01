@@ -1,0 +1,7 @@
+# Test Document
+
+This is a simple text document for testing.
+
+Features: - Simple formatting - Basic structure - Easy to parse
+
+End of document.
