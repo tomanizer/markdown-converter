@@ -8,9 +8,28 @@ Processors handle specific content types like tables, images, and metadata.
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Union
+from dataclasses import dataclass
 import logging
 
 from ..core.exceptions import ProcessorError
+
+
+@dataclass
+class ProcessingResult:
+    """
+    Result of a content processing operation.
+    
+    This class encapsulates the processed content and metadata
+    returned by a processor.
+    """
+    content: str
+    metadata: Dict[str, Any]
+    messages: List[str] = None
+    
+    def __post_init__(self):
+        """Initialize default values."""
+        if self.messages is None:
+            self.messages = []
 
 
 class BaseProcessor(ABC):
@@ -31,38 +50,36 @@ class BaseProcessor(ABC):
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
         self._validate_config()
     
-    @abstractmethod
-    def can_process(self, content_type: str, content: Any) -> bool:
+    def can_process(self, content: str) -> bool:
         """
         Check if this processor can handle the given content.
         
-        :param content_type: Type of content (e.g., 'table', 'image', 'metadata')
         :param content: The content to check
-        :return: True if the processor can handle this content type
+        :return: True if the processor can handle this content
         """
-        pass
+        # Default implementation - subclasses can override
+        return True
     
     @abstractmethod
-    def process(self, content_type: str, content: Any, context: Optional[Dict[str, Any]] = None) -> Any:
+    def process(self, content: str, metadata: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """
         Process the content and return enhanced/transformed content.
         
-        :param content_type: Type of content being processed
         :param content: The content to process
-        :param context: Additional context information
-        :return: Processed content
+        :param metadata: Optional metadata
+        :return: ProcessingResult with processed content and metadata
         :raises: ProcessorError if processing fails
         """
         pass
     
-    @abstractmethod
     def get_supported_content_types(self) -> List[str]:
         """
         Get list of content types this processor supports.
         
         :return: List of supported content types (e.g., ['table', 'image'])
         """
-        pass
+        # Default implementation - subclasses can override
+        return []
     
     def _validate_config(self) -> None:
         """
@@ -119,17 +136,16 @@ class ProcessorRegistry:
         self._processors.append(processor)
         self.logger.info(f"Registered processor: {processor.__class__.__name__}")
     
-    def get_processors_for_content(self, content_type: str, content: Any) -> List[BaseProcessor]:
+    def get_processors_for_content(self, content: str) -> List[BaseProcessor]:
         """
         Find processors that can handle the given content.
         
-        :param content_type: Type of content
         :param content: The content to process
         :return: List of processor instances that can handle the content
         """
         processors = []
         for processor in self._processors:
-            if processor.can_process(content_type, content):
+            if processor.can_process(content):
                 processors.append(processor)
         return processors
     
@@ -179,28 +195,36 @@ class ProcessingPipeline:
         self.processors.append(processor)
         self.logger.info(f"Added processor to pipeline: {processor.__class__.__name__}")
     
-    def process_content(self, content_type: str, content: Any, context: Optional[Dict[str, Any]] = None) -> Any:
+    def process_content(self, content: str, metadata: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """
         Process content through the pipeline.
         
-        :param content_type: Type of content being processed
         :param content: The content to process
-        :param context: Additional context information
-        :return: Processed content
+        :param metadata: Optional metadata
+        :return: ProcessingResult with processed content and metadata
         """
         processed_content = content
+        processed_metadata = metadata or {}
+        all_messages = []
         
         for processor in self.processors:
-            if processor.can_process(content_type, processed_content):
+            if processor.can_process(processed_content):
                 try:
-                    processed_content = processor.process(content_type, processed_content, context)
+                    result = processor.process(processed_content, processed_metadata)
+                    processed_content = result.content
+                    processed_metadata.update(result.metadata)
+                    all_messages.extend(result.messages)
                     self.logger.debug(f"Processed with {processor.__class__.__name__}")
                 except Exception as e:
                     self.logger.warning(f"Processor {processor.__class__.__name__} failed: {e}")
                     # Continue with other processors
                     continue
         
-        return processed_content
+        return ProcessingResult(
+            content=processed_content,
+            metadata=processed_metadata,
+            messages=all_messages
+        )
 
 
 # Global processor registry instance
