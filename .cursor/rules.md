@@ -10,8 +10,8 @@
 - **Imports**: Use absolute imports, organize with isort
 
 ### Documentation Standards
-- **Docstrings**: Use Google-style docstrings
-- **Type Hints**: Include type hints for all functions
+- **Docstrings**: Use reStructuredText format docstrings
+- **Type Hints**: Include type hints for all functions and methods
 - **README**: Comprehensive project documentation
 - **API Docs**: Auto-generated from docstrings
 
@@ -37,7 +37,7 @@
 import os
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Tuple, Union
 
 # Third-party imports
 import click
@@ -47,6 +47,30 @@ import pypandoc
 # Local imports
 from markdown_converter.core.converter import DocumentConverter
 from markdown_converter.parsers.word_parser import WordParser
+```
+
+### Type Hints Standards
+- **All functions**: Must have type hints for parameters and return values
+- **All methods**: Must have type hints for parameters and return values
+- **Complex types**: Use typing module (List, Dict, Optional, Union, etc.)
+- **Generic types**: Use proper generic type annotations
+- **Type aliases**: Create type aliases for complex types
+
+```python
+from typing import List, Dict, Optional, Union, Tuple
+from pathlib import Path
+
+# Type aliases for complex types
+FileResult = Tuple[str, Optional[str], str]  # (file_path, output_path, status)
+ConversionConfig = Dict[str, Union[str, int, bool]]
+
+def convert_batch(
+    file_list: List[Path], 
+    output_dir: Path, 
+    config: Optional[ConversionConfig] = None
+) -> List[FileResult]:
+    """Convert multiple files with type hints."""
+    pass
 ```
 
 ## Development Workflow
@@ -69,8 +93,34 @@ from markdown_converter.parsers.word_parser import WordParser
 ### Exception Handling
 - **Custom Exceptions**: Use domain-specific exceptions
 - **Graceful Degradation**: Never crash on recoverable errors
-- **Logging**: Log all errors with context
 - **User Feedback**: Provide clear error messages
+
+### Logging Guidelines
+- **Use logging module**: Throughout the codebase for all output
+- **No print statements**: Except for CLI output and user-facing messages
+- **Structured logging**: Use structlog for consistent log formatting
+- **Log levels**: Use appropriate levels (DEBUG, INFO, WARNING, ERROR)
+- **Context**: Include relevant context in log messages
+
+```python
+import logging
+import structlog
+
+# Setup structured logging
+logger = structlog.get_logger()
+
+def process_document(file_path: str) -> str:
+    """Process a document with proper logging."""
+    logger.info("Starting document processing", file_path=file_path)
+    
+    try:
+        result = convert_document(file_path)
+        logger.info("Document processed successfully", file_path=file_path)
+        return result
+    except Exception as e:
+        logger.error("Document processing failed", file_path=file_path, error=str(e))
+        raise
+```
 
 ### Retry Logic
 ```python
@@ -117,22 +167,49 @@ def convert_with_retry(file_path: str) -> str:
 
 ## Documentation Standards
 
-### Code Documentation
+### Docstring Standards (reStructuredText)
+- **Format**: Use reStructuredText format for all docstrings
+- **Required sections**: param, type, return, rtype, raises
+- **Optional sections**: note, warning, example, seealso
+- **Class docstrings**: Include class purpose and usage
+- **Method docstrings**: Include parameter descriptions and return values
+
 ```python
-def convert_document(file_path: str, output_path: Optional[str] = None) -> str:
-    """Convert a document to markdown format.
+class DocumentConverter:
+    """Convert various document formats to markdown.
     
-    Args:
-        file_path: Path to the input document
-        output_path: Optional path for output file
-        
-    Returns:
-        str: The converted markdown content
-        
-    Raises:
-        ConversionError: If conversion fails
-        FileNotFoundError: If input file doesn't exist
+    This class provides functionality to convert Word, PDF, Excel, and other
+    document formats to clean, readable markdown optimized for LLM processing.
+    
+    :param config: Configuration options for conversion
+    :type config: Optional[Dict[str, Any]]
+    :param logger: Logger instance for output
+    :type logger: Optional[structlog.BoundLogger]
     """
+    
+    def convert_file(self, file_path: str, output_path: Optional[str] = None) -> str:
+        """Convert a single file to markdown format.
+        
+        :param file_path: Path to the input document
+        :type file_path: str
+        :param output_path: Optional path for output file
+        :type output_path: Optional[str]
+        :return: The converted markdown content
+        :rtype: str
+        :raises ConversionError: If conversion fails
+        :raises FileNotFoundError: If input file doesn't exist
+        :raises ValueError: If file format is not supported
+        
+        :note: This method will attempt multiple conversion strategies
+               if the primary method fails.
+        
+        :example:
+            >>> converter = DocumentConverter()
+            >>> result = converter.convert_file("document.docx")
+            >>> print(result)
+            # Document Title
+            ...
+        """
 ```
 
 ### Project Documentation
