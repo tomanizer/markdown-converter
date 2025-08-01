@@ -10,8 +10,28 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Union
 import logging
 import os
+from dataclasses import dataclass
 
 from ..core.exceptions import ParserError, UnsupportedFormatError
+
+
+@dataclass
+class ParserResult:
+    """
+    Result of a document parsing operation.
+    
+    This class encapsulates the parsed content and metadata
+    returned by a parser.
+    """
+    content: str
+    metadata: Dict[str, Any]
+    format: str
+    messages: List[str] = None
+    
+    def __post_init__(self):
+        """Initialize default values."""
+        if self.messages is None:
+            self.messages = []
 
 
 class BaseParser(ABC):
@@ -44,12 +64,12 @@ class BaseParser(ABC):
         pass
     
     @abstractmethod
-    def parse(self, file_path: Union[str, Path]) -> Dict[str, Any]:
+    def parse(self, file_path: Union[str, Path]) -> ParserResult:
         """
         Parse the document and extract its content.
         
         :param file_path: Path to the file to parse
-        :return: Dictionary containing parsed content and metadata
+        :return: ParserResult containing parsed content and metadata
         :raises: ParserError if parsing fails
         """
         pass
@@ -174,6 +194,14 @@ class ParserRegistry:
         :return: List of parser class names
         """
         return [parser.__class__.__name__ for parser in self._parsers]
+    
+    def get_parsers(self) -> List[BaseParser]:
+        """
+        Get list of registered parser instances.
+        
+        :return: List of parser instances
+        """
+        return self._parsers.copy()
 
 
 # Global parser registry instance
