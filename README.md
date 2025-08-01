@@ -26,7 +26,12 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements/dev.txt
+pip install -r requirements.txt
+
+# Note: pandoc needs to be installed separately
+# macOS: brew install pandoc
+# Ubuntu: sudo apt-get install pandoc
+# Windows: Download from https://pandoc.org/installing.html
 ```
 
 ### Basic Usage
