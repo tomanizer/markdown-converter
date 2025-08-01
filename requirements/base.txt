@@ -1,7 +1,6 @@
 # Core dependencies for markdown converter
 
 # Document conversion
-pandoc>=2.18
 pypandoc>=1.11
 
 # File system handling

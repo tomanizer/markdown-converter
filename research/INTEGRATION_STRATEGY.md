@@ -157,7 +157,7 @@ def process_file_batch(file_paths, output_dir, fs=None):
 ```python
 # requirements.txt
 pypandoc>=1.11
-pandoc>=2.18
+pandoc>=3.7
 
 # Usage
 def convert_with_pandoc(input_file, output_file):

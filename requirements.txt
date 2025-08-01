@@ -128,7 +128,7 @@ Pillow>=9.0.0
 # 4. All dependencies (this file):
 #    pip install -r requirements.txt
 #
-# Note: pandoc needs to be installed separately via system package managers:
+# Note: pandoc 3.7+ needs to be installed separately via system package managers:
 # macOS: brew install pandoc
 # Ubuntu: sudo apt-get install pandoc
 # Windows: Download from https://pandoc.org/installing.html 
