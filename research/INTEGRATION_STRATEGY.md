@@ -156,7 +156,7 @@ def process_file_batch(file_paths, output_dir, fs=None):
 ### 2. Pandoc Integration
 ```python
 # requirements.txt
-pypandoc>=1.11
+pypandoc>=1.15
 pandoc>=3.7
 
 # Usage

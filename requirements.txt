@@ -8,7 +8,7 @@
 # =============================================================================
 
 # Document conversion
-pypandoc>=1.11
+pypandoc>=1.15
 
 # File system handling
 fsspec>=2023.0.0
