@@ -91,7 +91,7 @@ class WordParser(BaseParser):
         :return: True if the file can be parsed
         """
         file_path = Path(file_path)
-        return file_path.suffix.lower() in ['.docx', '.doc']
+        return file_path.suffix.lower() in ['.docx', '.doc', '.rtf']
     
     def parse(self, file_path: Union[str, Path]) -> ParserResult:
         """
@@ -108,23 +108,30 @@ class WordParser(BaseParser):
         
         self.logger.info(f"Parsing Word document: {file_path}")
         
+        # Check if file needs conversion (e.g., .doc -> .docx, .rtf -> .docx)
+        converted_file = self._ensure_readable_format(file_path)
+        
         try:
             # Try mammoth first (preferred)
             if self.default_config["use_mammoth"] and self.mammoth_available:
                 try:
-                    return self._parse_with_mammoth(file_path)
+                    return self._parse_with_mammoth(converted_file)
                 except Exception as e:
                     self.logger.warning(f"Mammoth parsing failed: {e}, trying python-docx")
             
             # Fallback to python-docx
             if self.default_config["use_python_docx"] and self.python_docx_available:
-                return self._parse_with_python_docx(file_path)
+                return self._parse_with_python_docx(converted_file)
             
             raise ParserError("No available Word parser found")
             
         except Exception as e:
             self.logger.error(f"Word parsing failed for {file_path}: {e}")
             raise ParserError(f"Failed to parse Word document {file_path}: {e}")
+        finally:
+            # Clean up converted file if it's different from original
+            if converted_file != file_path and self.default_config.get("cleanup_temp_files", True):
+                self._cleanup_converted_file(converted_file)
     
     def _parse_with_mammoth(self, file_path: Path) -> ParserResult:
         """
@@ -314,7 +321,42 @@ class WordParser(BaseParser):
         
         :return: List of supported format extensions
         """
-        return ['.docx', '.doc']
+        return ['.docx', '.doc', '.rtf']
+    
+    def _ensure_readable_format(self, file_path: Path) -> Path:
+        """
+        Ensure the file is in a readable format, converting if necessary.
+        
+        :param file_path: Path to the file
+        :return: Path to the readable file (original or converted)
+        """
+        # Check if file needs conversion
+        if file_path.suffix.lower() in ['.doc', '.rtf']:
+            try:
+                from ..core.file_converter import FileConverter
+                converter = FileConverter()
+                if converter.needs_conversion(file_path):
+                    self.logger.info(f"Converting {file_path} to readable format")
+                    return converter.convert_file(file_path)
+            except ImportError:
+                self.logger.warning("FileConverter not available, trying direct parsing")
+            except Exception as e:
+                self.logger.warning(f"File conversion failed: {e}, trying direct parsing")
+        
+        return file_path
+    
+    def _cleanup_converted_file(self, file_path: Path) -> None:
+        """
+        Clean up a converted temporary file.
+        
+        :param file_path: Path to the file to clean up
+        """
+        try:
+            if file_path.exists():
+                file_path.unlink()
+                self.logger.debug(f"Cleaned up temporary file: {file_path}")
+        except Exception as e:
+            self.logger.warning(f"Failed to clean up temporary file {file_path}: {e}")
     
     def get_parser_info(self) -> Dict[str, Any]:
         """

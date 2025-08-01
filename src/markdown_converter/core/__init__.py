@@ -22,6 +22,7 @@ from .exceptions import (
 
 from .engine import PandocEngine, ConversionEngine
 from .filesystem import FilesystemManager
+from .file_converter import FileConverter
 from .utils import (
     get_file_extension,
     validate_file_path,
@@ -58,6 +59,8 @@ __all__ = [
     "ConversionEngine",
     # Filesystem components
     "FilesystemManager",
+    # File conversion components
+    "FileConverter",
     # Utility functions
     "get_file_extension",
     "validate_file_path",

@@ -89,7 +89,7 @@ class ExcelParser(BaseParser):
         :return: True if the file can be parsed
         """
         file_path = Path(file_path)
-        return file_path.suffix.lower() in ['.xlsx', '.xls']
+        return file_path.suffix.lower() in ['.xlsx', '.xls', '.xlsb']
     
     def parse(self, file_path: Union[str, Path]) -> ParserResult:
         """
@@ -106,23 +106,30 @@ class ExcelParser(BaseParser):
         
         self.logger.info(f"Parsing Excel document: {file_path}")
         
+        # Check if file needs conversion (e.g., .xlsb -> .xlsx)
+        converted_file = self._ensure_readable_format(file_path)
+        
         try:
             # Try pandas first (preferred for data analysis)
             if self.pandas_available:
                 try:
-                    return self._parse_with_pandas(file_path)
+                    return self._parse_with_pandas(converted_file)
                 except Exception as e:
                     self.logger.warning(f"pandas parsing failed: {e}, trying openpyxl")
             
             # Fallback to openpyxl
             if self.openpyxl_available:
-                return self._parse_with_openpyxl(file_path)
+                return self._parse_with_openpyxl(converted_file)
             
             raise ParserError("No available Excel parser found")
             
         except Exception as e:
             self.logger.error(f"Excel parsing failed for {file_path}: {e}")
             raise ParserError(f"Failed to parse Excel document {file_path}: {e}")
+        finally:
+            # Clean up converted file if it's different from original
+            if converted_file != file_path and self.default_config.get("cleanup_temp_files", True):
+                self._cleanup_converted_file(converted_file)
     
     def _parse_with_pandas(self, file_path: Path) -> ParserResult:
         """
@@ -363,7 +370,42 @@ class ExcelParser(BaseParser):
         
         :return: List of supported format extensions
         """
-        return ['.xlsx', '.xls']
+        return ['.xlsx', '.xls', '.xlsb']
+    
+    def _ensure_readable_format(self, file_path: Path) -> Path:
+        """
+        Ensure the file is in a readable format, converting if necessary.
+        
+        :param file_path: Path to the file
+        :return: Path to the readable file (original or converted)
+        """
+        # Check if file needs conversion
+        if file_path.suffix.lower() in ['.xlsb', '.xls']:
+            try:
+                from ..core.file_converter import FileConverter
+                converter = FileConverter()
+                if converter.needs_conversion(file_path):
+                    self.logger.info(f"Converting {file_path} to readable format")
+                    return converter.convert_file(file_path)
+            except ImportError:
+                self.logger.warning("FileConverter not available, trying direct parsing")
+            except Exception as e:
+                self.logger.warning(f"File conversion failed: {e}, trying direct parsing")
+        
+        return file_path
+    
+    def _cleanup_converted_file(self, file_path: Path) -> None:
+        """
+        Clean up a converted temporary file.
+        
+        :param file_path: Path to the file to clean up
+        """
+        try:
+            if file_path.exists():
+                file_path.unlink()
+                self.logger.debug(f"Cleaned up temporary file: {file_path}")
+        except Exception as e:
+            self.logger.warning(f"Failed to clean up temporary file {file_path}: {e}")
     
     def get_parser_info(self) -> Dict[str, Any]:
         """
