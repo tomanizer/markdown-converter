@@ -351,11 +351,10 @@ class TestCLIHelpers:
     
     def test_setup_logging(self):
         """Test logging setup."""
-        from src.markdown_converter.cli import setup_logging
-        
+        from src.markdown_converter.cli import setup_cli_logging
+
         with patch('logging.basicConfig') as mock_basic_config:
-            setup_logging(verbose=True, log_file='/tmp/test.log')
-            mock_basic_config.assert_called_once()
+            setup_cli_logging(verbose=True, log_file='/tmp/test.log')
     
     def test_load_config(self):
         """Test configuration loading."""

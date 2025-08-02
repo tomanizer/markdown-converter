@@ -23,27 +23,29 @@ from .core.exceptions import (
     GridProcessingError,
     DependencyError
 )
+from .logging_system import setup_logging, get_logging_manager
 
 
-def setup_logging(verbose: bool = False, log_file: Optional[str] = None) -> None:
+def setup_cli_logging(verbose: bool = False, log_file: Optional[str] = None, structured: bool = False) -> None:
     """
-    Setup logging configuration.
+    Setup logging configuration for CLI.
     
     :param verbose: Enable verbose logging
     :param log_file: Optional log file path
+    :param structured: Enable structured JSON logging
     """
-    level = logging.DEBUG if verbose else logging.INFO
-    format_str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    config = {
+        'log_level': 'DEBUG' if verbose else 'INFO',
+        'log_file': log_file,
+        'structured_logging': structured,
+        'console_output': True,
+        'max_retries': 3,
+        'retry_delay': 1.0,
+        'performance_check_interval': 30.0
+    }
     
-    # Configure root logger
-    logging.basicConfig(
-        level=level,
-        format=format_str,
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            *([logging.FileHandler(log_file)] if log_file else [])
-        ]
-    )
+    logging_manager = setup_logging(config)
+    return logging_manager
 
 
 def load_config(config_file: Optional[str] = None) -> Dict[str, Any]:
@@ -122,26 +124,31 @@ def print_processing_stats(stats: Any) -> None:
 @click.version_option(version="0.1.0")
 @click.option('--verbose', '-v', is_flag=True, help='Enable verbose logging')
 @click.option('--log-file', help='Log file path')
+@click.option('--structured', is_flag=True, help='Enable structured JSON logging')
 @click.option('--config', help='Configuration file path')
 @click.pass_context
-def cli(ctx: click.Context, verbose: bool, log_file: Optional[str], config: Optional[str]) -> None:
-    """
-    Markdown Converter - Convert documents to clean, readable markdown.
-    
-    A powerful tool for converting various document formats to markdown
-    optimized for LLM processing with support for batch and grid processing.
-    """
-    # Ensure context object exists
-    ctx.ensure_object(dict)
-    
+def cli(ctx: click.Context, verbose: bool, log_file: Optional[str], structured: bool, config: Optional[str]) -> None:
+    """Markdown Converter - Convert documents to markdown format."""
     # Setup logging
-    setup_logging(verbose, log_file)
+    logging_manager = setup_cli_logging(verbose, log_file, structured)
     
     # Load configuration
-    ctx.obj['config'] = load_config(config)
+    config_data = load_config(config)
+    ctx.obj = {
+        'config': config_data,
+        'logging_manager': logging_manager
+    }
     
-    # Store options
-    ctx.obj['verbose'] = verbose
+    # Start performance monitoring
+    logging_manager.start_performance_monitoring()
+    
+    # Log CLI startup
+    logging_manager.logger.info("Markdown Converter CLI started", extra={
+        'verbose': verbose,
+        'log_file': log_file,
+        'structured': structured,
+        'config_file': config
+    })
 
 
 @cli.command()
@@ -159,44 +166,52 @@ def cli(ctx: click.Context, verbose: bool, log_file: Optional[str], config: Opti
 def convert(ctx: click.Context, input_file: Path, output_file: Optional[Path], 
            output_format: str, preserve_structure: bool, extract_images: bool, 
            metadata: bool) -> None:
-    """
-    Convert a single file to markdown.
+    """Convert a single file to markdown."""
+    logging_manager = ctx.obj['logging_manager']
     
-    INPUT_FILE: Path to the input document
-    OUTPUT_FILE: Path for the output file (optional, auto-generated if not provided)
-    """
-    try:
-        # Generate output path if not provided
-        if output_file is None:
-            output_file = input_file.with_suffix(f'.{output_format}')
-        
-        click.echo(f"🔄 Converting {input_file} to {output_file}...")
-        
-        # Create conversion engine
-        engine = ConversionEngine()
-        
-        # Convert the document
-        result = engine.convert_document(
-            str(input_file),
-            str(output_file),
-            output_format=output_format
-        )
-        
-        if result:
-            click.echo(f"✅ Successfully converted {input_file} to {output_file}")
-        else:
-            click.echo(f"❌ Failed to convert {input_file}")
-            sys.exit(1)
+    # Generate output path if not provided
+    if output_file is None:
+        output_file = input_file.with_suffix(f'.{output_format}')
+    
+    # Ensure output directory exists
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    with logging_manager.operation_context(
+        "file_conversion",
+        input_file=str(input_file),
+        output_file=str(output_file),
+        output_format=output_format,
+        preserve_structure=preserve_structure,
+        extract_images=extract_images,
+        metadata=metadata
+    ):
+        try:
+            # Initialize conversion engine
+            engine = ConversionEngine()
             
-    except ConversionError as e:
-        click.echo(f"❌ Conversion error: {e}")
-        sys.exit(1)
-    except Exception as e:
-        click.echo(f"❌ Unexpected error: {e}")
-        if ctx.obj['verbose']:
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+            # Perform conversion with retry logic
+            result = logging_manager.retry_operation(
+                engine.convert_document,
+                str(input_file),
+                str(output_file),
+                output_format=output_format
+            )
+            
+            click.echo(f"✅ Successfully converted {input_file} to {output_file}")
+            
+            # Log success with file size info
+            file_size = input_file.stat().st_size / (1024 * 1024)  # MB
+            logging_manager.logger.info(
+                f"File conversion completed successfully",
+                extra={
+                    'file_size_mb': file_size,
+                    'output_size_mb': output_file.stat().st_size / (1024 * 1024) if output_file.exists() else 0
+                }
+            )
+            
+        except Exception as e:
+            click.echo(f"❌ Conversion failed: {e}")
+            raise click.Abort()
 
 
 @cli.command()
@@ -419,24 +434,75 @@ def info(detailed: bool) -> None:
 
 @cli.command()
 def formats() -> None:
-    """Show supported input and output formats."""
+    """Show supported input formats."""
     print_supported_formats()
+
+
+@cli.command()
+@click.option('--json', is_flag=True, help='Output health check in JSON format')
+@click.pass_context
+def health(ctx: click.Context, json: bool) -> None:
+    """Check system health and performance."""
+    logging_manager = ctx.obj['logging_manager']
     
-    click.echo("\n📤 Supported Output Formats:")
-    output_formats = [
-        ("Markdown", "markdown", "Clean, readable markdown optimized for LLM processing"),
-        ("HTML", "html", "HTML with preserved formatting"),
-        ("PDF", "pdf", "PDF output (requires LaTeX)"),
-        ("Plain Text", "txt", "Plain text with basic formatting"),
-    ]
+    # Perform health check
+    health_status = logging_manager.health_check()
     
-    for name, format_id, description in output_formats:
-        click.echo(f"  {name} ({format_id}): {description}")
+    if json:
+        import json as json_module
+        click.echo(json_module.dumps(health_status, indent=2))
+    else:
+        # Display health status in a user-friendly format
+        status_emoji = {
+            "healthy": "✅",
+            "warning": "⚠️",
+            "critical": "🚨",
+            "error": "❌"
+        }
+        
+        click.echo(f"{status_emoji.get(health_status['status'], '❓')} System Health: {health_status['status'].upper()}")
+        click.echo(f"📅 Timestamp: {health_status['timestamp']}")
+        
+        if 'performance' in health_status:
+            perf = health_status['performance']
+            click.echo(f"💻 CPU Usage: {perf['cpu_percent']:.1f}%")
+            click.echo(f"🧠 Memory Usage: {perf['memory_percent']:.1f}% ({perf['memory_used_mb']:.1f} MB)")
+            click.echo(f"💾 Disk Usage: {perf['disk_usage_percent']:.1f}%")
+            click.echo(f"🧵 Active Threads: {perf['active_threads']}")
+        
+        if 'errors' in health_status:
+            errors = health_status['errors']
+            click.echo(f"🚨 Total Errors: {errors.get('total_errors', 0)}")
+            
+            if 'error_types' in errors and errors['error_types']:
+                click.echo("📊 Error Types:")
+                for error_type, count in errors['error_types'].items():
+                    click.echo(f"  - {error_type}: {count}")
+            
+            if 'recent_errors' in errors and errors['recent_errors']:
+                click.echo("🕒 Recent Errors:")
+                for error in errors['recent_errors'][-3:]:  # Show last 3 errors
+                    click.echo(f"  - {error['type']}: {error['message']}")
 
 
 def main() -> None:
     """Main entry point for the CLI."""
-    cli()
+    try:
+        cli()
+    except KeyboardInterrupt:
+        click.echo("\n🛑 Operation cancelled by user")
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Unexpected error: {e}")
+        sys.exit(1)
+    finally:
+        # Ensure performance monitoring is stopped
+        try:
+            from .logging_system import get_logging_manager
+            logging_manager = get_logging_manager()
+            logging_manager.stop_performance_monitoring()
+        except:
+            pass
 
 
 if __name__ == '__main__':
