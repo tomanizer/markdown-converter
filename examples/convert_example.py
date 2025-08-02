@@ -2,7 +2,7 @@
 """
 Example: Using the Python API to convert a document to Markdown.
 
-This example demonstrates how to use the ConversionEngine to convert
+This example demonstrates how to use the MainConverter to convert
 various document formats to clean, readable markdown.
 """
 
@@ -12,7 +12,7 @@ from pathlib import Path
 # Add the project root to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.markdown_converter.core import MainConverter
+from src.markdown_converter.core.converter import MainConverter
 
 
 def convert_single_file():
@@ -26,12 +26,20 @@ def convert_single_file():
 
     # Convert the document
     try:
-        result = converter.convert_document(input_file, output_file)
-        print("✅ Conversion successful!")
-        print("Markdown output (first 20 lines):")
-        print("\n".join(result.splitlines()[:20]))
-        print(f"\nSaved to: {output_file}")
-        return True
+        result = converter.convert_file(input_file, output_file)
+        if result.success:
+            print("✅ Conversion successful!")
+            print(f"Saved to: {output_file}")
+            
+            # Read and show the first 20 lines of output
+            if Path(output_file).exists():
+                content = Path(output_file).read_text()
+                print("Markdown output (first 20 lines):")
+                print("\n".join(content.splitlines()[:20]))
+            return True
+        else:
+            print(f"❌ Conversion failed: {result.error_message}")
+            return False
     except Exception as e:
         print(f"❌ Conversion failed: {e}")
         return False
@@ -60,26 +68,23 @@ def convert_multiple_files():
 
     print(f"🔄 Converting {len(existing_files)} files...")
     
-    # Convert files in batch
-    # Note: MainConverter doesn't have batch_convert, so we'll convert one by one
+    # Convert files one by one
     results = []
     for file_path in existing_files:
         try:
             output_file = output_dir / f"{Path(file_path).stem}.md"
-            result = converter.convert_document(file_path, str(output_file))
+            result = converter.convert_file(file_path, str(output_file))
             results.append({
                 'input_file': file_path,
                 'output_file': str(output_file),
-                'success': True,
-                'content': result,
-                'error': None
+                'success': result.success,
+                'error': result.error_message
             })
         except Exception as e:
             results.append({
                 'input_file': file_path,
                 'output_file': None,
                 'success': False,
-                'content': None,
                 'error': str(e)
             })
     
@@ -104,7 +109,33 @@ def convert_multiple_files():
     return len(failed) == 0
 
 
-def show_engine_info():
+def convert_directory():
+    """Convert all files in a directory."""
+    converter = MainConverter()
+    input_dir = Path("test_documents")
+    output_dir = Path("test_documents/converted")
+    
+    if not input_dir.exists():
+        print("❌ Input directory not found!")
+        return False
+    
+    try:
+        result = converter.convert_directory(input_dir, output_dir)
+        
+        print(f"\n📊 Directory Conversion Results:")
+        print(f"   Total files: {result.total_files}")
+        print(f"   Processed: {result.processed_files}")
+        print(f"   Failed: {result.failed_files}")
+        print(f"   Skipped: {result.skipped_files}")
+        print(f"   Processing time: {result.processing_time:.2f} seconds")
+        
+        return result.failed_files == 0
+    except Exception as e:
+        print(f"❌ Directory conversion failed: {e}")
+        return False
+
+
+def show_converter_info():
     """Show information about the conversion engine."""
     converter = MainConverter()
     
@@ -119,7 +150,7 @@ def main():
     print("=" * 50)
     
     # Show engine information
-    show_engine_info()
+    show_converter_info()
     print()
     
     # Convert single file
@@ -128,12 +159,17 @@ def main():
     print()
     
     # Convert multiple files
-    print("📁 Batch File Conversion:")
+    print("📁 Multiple File Conversion:")
     success2 = convert_multiple_files()
     print()
     
+    # Convert directory
+    print("📂 Directory Conversion:")
+    success3 = convert_directory()
+    print()
+    
     # Summary
-    if success1 and success2:
+    if success1 and success2 and success3:
         print("🎉 All conversions completed successfully!")
     else:
         print("⚠️  Some conversions failed. Check the output above for details.")

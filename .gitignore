@@ -255,4 +255,8 @@ logs/
 
 # Temporary directories
 tmp/
-temp/ 
+temp/
+
+# Output directories
+output/
+test_documents/converted/ 

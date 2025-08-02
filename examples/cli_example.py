@@ -10,8 +10,8 @@ import os
 import sys
 from pathlib import Path
 
-# Add the src directory to the path so we can import the module
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+# Add the project root to the path so we can import the module
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.markdown_converter.core.converter import MainConverter, ConversionResult, DirectoryConversionResult
 from src.markdown_converter.core.exceptions import ConversionError

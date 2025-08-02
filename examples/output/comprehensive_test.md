@@ -1,0 +1,3 @@
+Comprehensive text file
+
+This file contains: 1. Multiple lines 2. Different content 3. Various formatting
