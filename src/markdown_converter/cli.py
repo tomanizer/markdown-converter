@@ -13,15 +13,12 @@ from typing import Optional, List, Dict, Any
 import yaml
 import os
 
-from .core.engine import ConversionEngine
-from .core.batch_processor import BatchProcessor
-from .core.grid_processor import GridProcessor
-from .core.filesystem import FilesystemManager
+from .core.converter import MainConverter
+from .core.converter import MainConverter, ConversionResult, DirectoryConversionResult
+
+
 from .core.exceptions import (
-    ConversionError, 
-    BatchProcessingError, 
-    GridProcessingError,
-    DependencyError
+    ConversionError
 )
 from .logging_system import setup_logging, get_logging_manager
 
@@ -187,11 +184,11 @@ def convert(ctx: click.Context, input_file: Path, output_file: Optional[Path],
     ):
         try:
             # Initialize conversion engine
-            engine = ConversionEngine()
+            converter = MainConverter()
             
             # Perform conversion with retry logic
             result = logging_manager.retry_operation(
-                engine.convert_document,
+                converter.convert_document,
                 str(input_file),
                 str(output_file),
                 output_format=output_format
@@ -258,23 +255,26 @@ def batch(ctx: click.Context, input_dir: Path, output_dir: Optional[Path],
             'show_progress_bar': progress,
         })
         
-        # Create batch processor
-        processor = BatchProcessor(config)
-        
-        # Process the directory
-        stats = processor.process_directory(input_dir, output_dir)
+        # Create converter and process directory
+        converter = MainConverter(config)
+        result = converter.convert_directory(
+            input_dir=input_dir,
+            output_dir=output_dir,
+            max_workers=workers,
+            continue_on_error=continue_on_error
+        )
         
         # Print results
-        print_processing_stats(stats)
+        print_processing_stats(result)
         
-        if stats.failed_files > 0:
-            click.echo(f"\n⚠️  {stats.failed_files} files failed to convert")
+        if result.failed_files > 0:
+            click.echo(f"\n⚠️  {result.failed_files} files failed to convert")
             if not continue_on_error:
                 sys.exit(1)
         else:
             click.echo(f"\n✅ All files converted successfully!")
             
-    except BatchProcessingError as e:
+    except ConversionError as e:
         click.echo(f"❌ Batch processing error: {e}")
         sys.exit(1)
     except Exception as e:
@@ -285,106 +285,7 @@ def batch(ctx: click.Context, input_dir: Path, output_dir: Optional[Path],
         sys.exit(1)
 
 
-@cli.command()
-@click.argument('input_dir', type=click.Path(exists=True, file_okay=False, path_type=Path))
-@click.argument('output_dir', type=click.Path(path_type=Path), required=False)
-@click.option('--cluster-type', default='local', type=click.Choice(['local', 'remote']),
-              help='Type of Dask cluster to use')
-@click.option('--scheduler-address', help='Remote scheduler address')
-@click.option('--workers', '-w', default=4, type=int,
-              help='Number of worker processes')
-@click.option('--memory-limit', default='2GB', help='Memory limit per worker')
-@click.option('--dashboard/--no-dashboard', default=True,
-              help='Enable Dask dashboard')
-@click.option('--job-timeout', default=3600, type=int,
-              help='Job timeout in seconds')
-@click.pass_context
-def grid(ctx: click.Context, input_dir: Path, output_dir: Optional[Path],
-         cluster_type: str, scheduler_address: Optional[str], workers: int,
-         memory_limit: str, dashboard: bool, job_timeout: int) -> None:
-    """
-    Convert files using distributed grid processing with Dask.
-    
-    INPUT_DIR: Directory containing files to convert
-    OUTPUT_DIR: Output directory (optional, auto-generated if not provided)
-    """
-    try:
-        # Check if Dask is available
-        try:
-            import dask
-        except ImportError:
-            click.echo("❌ Dask is required for grid processing. Install with: pip install dask[distributed]")
-            sys.exit(1)
-        
-        # Generate output directory if not provided
-        if output_dir is None:
-            output_dir = input_dir.parent / f"{input_dir.name}_converted"
-        
-        click.echo(f"🔄 Starting grid conversion from {input_dir} to {output_dir}...")
-        
-        # Setup grid processor configuration
-        config = ctx.obj['config'].copy()
-        config.update({
-            'cluster_type': cluster_type,
-            'scheduler_address': scheduler_address,
-            'n_workers': workers,
-            'memory_limit_per_worker': memory_limit,
-            'dashboard_address': ':8787' if dashboard else None,
-            'job_timeout': job_timeout,
-        })
-        
-        # Create grid processor
-        processor = GridProcessor(config)
-        
-        # Start cluster
-        cluster_info = processor.start_cluster()
-        click.echo(f"🚀 Started cluster: {cluster_info.scheduler_address}")
-        if dashboard:
-            click.echo(f"📊 Dashboard available at: http://localhost:8787")
-        
-        try:
-            # Submit job
-            job_info = processor.submit_job(input_dir, output_dir)
-            click.echo(f"📋 Submitted job: {job_info.job_id}")
-            
-            # Monitor job
-            while True:
-                status = processor.get_job_status(job_info.job_id)
-                if status and status.status in ['completed', 'failed', 'cancelled']:
-                    break
-                
-                click.echo(f"⏳ Job status: {status.status if status else 'unknown'}")
-                import time
-                time.sleep(5)
-            
-            # Get final status
-            final_status = processor.get_job_status(job_info.job_id)
-            if final_status:
-                if final_status.status == 'completed':
-                    click.echo(f"✅ Job completed successfully!")
-                    click.echo(f"   Processed: {final_status.completed_tasks} tasks")
-                    click.echo(f"   Failed: {final_status.failed_tasks} tasks")
-                else:
-                    click.echo(f"❌ Job {final_status.status}")
-                    sys.exit(1)
-            
-        finally:
-            # Stop cluster
-            processor.stop_cluster()
-            click.echo("🛑 Stopped cluster")
-            
-    except GridProcessingError as e:
-        click.echo(f"❌ Grid processing error: {e}")
-        sys.exit(1)
-    except DependencyError as e:
-        click.echo(f"❌ Dependency error: {e}")
-        sys.exit(1)
-    except Exception as e:
-        click.echo(f"❌ Unexpected error: {e}")
-        if ctx.obj['verbose']:
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+
 
 
 @cli.command()

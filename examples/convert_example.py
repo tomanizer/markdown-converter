@@ -12,7 +12,7 @@ from pathlib import Path
 # Add the project root to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.markdown_converter.core import ConversionEngine
+from src.markdown_converter.core import MainConverter
 
 
 def convert_single_file():
@@ -22,11 +22,11 @@ def convert_single_file():
     output_file = "test_documents/simple_test.md"
 
     # Initialize the conversion engine
-    engine = ConversionEngine()
+    converter = MainConverter()
 
     # Convert the document
     try:
-        result = engine.convert_document(input_file, output_file)
+        result = converter.convert_document(input_file, output_file)
         print("✅ Conversion successful!")
         print("Markdown output (first 20 lines):")
         print("\n".join(result.splitlines()[:20]))
@@ -54,14 +54,34 @@ def convert_multiple_files():
         print("❌ No test files found!")
         return False
 
-    engine = ConversionEngine()
+    converter = MainConverter()
     output_dir = Path("test_documents/converted")
     output_dir.mkdir(exist_ok=True)
 
     print(f"🔄 Converting {len(existing_files)} files...")
     
     # Convert files in batch
-    results = engine.batch_convert(existing_files, output_dir)
+    # Note: MainConverter doesn't have batch_convert, so we'll convert one by one
+    results = []
+    for file_path in existing_files:
+        try:
+            output_file = output_dir / f"{Path(file_path).stem}.md"
+            result = converter.convert_document(file_path, str(output_file))
+            results.append({
+                'input_file': file_path,
+                'output_file': str(output_file),
+                'success': True,
+                'content': result,
+                'error': None
+            })
+        except Exception as e:
+            results.append({
+                'input_file': file_path,
+                'output_file': None,
+                'success': False,
+                'content': None,
+                'error': str(e)
+            })
     
     # Report results
     successful = [r for r in results if r["success"]]
@@ -86,11 +106,11 @@ def convert_multiple_files():
 
 def show_engine_info():
     """Show information about the conversion engine."""
-    engine = ConversionEngine()
+    converter = MainConverter()
     
     print("🔧 Conversion Engine Information:")
-    print(f"   - Pandoc Engine: {type(engine.pandoc_engine).__name__}")
-    print(f"   - Supported formats: {engine.pandoc_engine.get_supported_formats()}")
+    print(f"   - Main Converter: {type(converter).__name__}")
+    print(f"   - Supported formats: {converter.get_supported_formats()}")
 
 
 def main():

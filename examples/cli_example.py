@@ -13,12 +13,7 @@ from pathlib import Path
 # Add the project root to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.markdown_converter.api import (
-    MarkdownConverter, 
-    convert_file, 
-    convert_directory, 
-    convert_with_grid
-)
+from src.markdown_converter.core.converter import MainConverter, ConversionResult
 from src.markdown_converter.config import create_default_config_file
 
 
@@ -33,8 +28,9 @@ def example_single_file_conversion():
         print(f"❌ Test file not found: {test_file}")
         return
     
-    # Convert using the API
-    result = convert_file(
+    # Convert using MainConverter directly
+    converter = MainConverter()
+    result = converter.convert_file(
         input_file=test_file,
         output_format='markdown',
         preserve_structure=True,
@@ -55,7 +51,7 @@ def example_batch_conversion():
     print("=" * 50)
     
     # Create converter instance
-    converter = MarkdownConverter()
+    converter = MainConverter()
     
     # Convert directory
     input_dir = Path("test_documents")
@@ -66,22 +62,19 @@ def example_batch_conversion():
     result = converter.convert_directory(
         input_dir=input_dir,
         max_workers=4,
-        batch_size=10,
-        max_memory_mb=1024,
         continue_on_error=True
     )
     
     print(f"📊 Batch Processing Results:")
-    print(f"   Total files: {result.stats.total_files}")
-    print(f"   Processed: {result.stats.processed_files}")
-    print(f"   Failed: {result.stats.failed_files}")
-    print(f"   Skipped: {result.stats.skipped_files}")
+    print(f"   Total files: {result.total_files}")
+    print(f"   Processed: {result.processed_files}")
+    print(f"   Failed: {result.failed_files}")
+    print(f"   Skipped: {result.skipped_files}")
     
-    if result.stats.end_time and result.stats.start_time:
-        duration = result.stats.end_time - result.stats.start_time
-        print(f"   Duration: {duration:.2f} seconds")
-        if result.stats.processed_files > 0:
-            rate = result.stats.processed_files / duration
+    if result.processing_time > 0:
+        print(f"   Duration: {result.processing_time:.2f} seconds")
+        if result.processed_files > 0:
+            rate = result.processed_files / result.processing_time
             print(f"   Rate: {rate:.2f} files/second")
 
 
@@ -90,35 +83,9 @@ def example_grid_conversion():
     print("\n🌐 Example 3: Grid Conversion")
     print("=" * 50)
     
-    try:
-        # Check if Dask is available
-        import dask
-        print("✅ Dask is available for grid processing")
-        
-        # Convert using grid processing
-        input_dir = Path("test_documents")
-        if not input_dir.exists():
-            print(f"❌ Test directory not found: {input_dir}")
-            return
-        
-        result = convert_with_grid(
-            input_dir=input_dir,
-            cluster_type='local',
-            n_workers=2,
-            memory_limit='1GB'
-        )
-        
-        print(f"📊 Grid Processing Results:")
-        print(f"   Job ID: {result.job_info.job_id}")
-        print(f"   Status: {result.job_info.status}")
-        print(f"   Total tasks: {result.job_info.total_tasks}")
-        print(f"   Completed tasks: {result.job_info.completed_tasks}")
-        print(f"   Failed tasks: {result.job_info.failed_tasks}")
-        
-    except ImportError:
-        print("❌ Dask not available. Install with: pip install dask[distributed]")
-    except Exception as e:
-        print(f"❌ Grid processing failed: {e}")
+    print("   Note: Grid processing has been simplified.")
+    print("   Use MainConverter.convert_directory() with max_workers for parallel processing.")
+    print("   For very large-scale processing, consider using Dask directly.")
 
 
 def example_configuration():
@@ -170,9 +137,6 @@ def example_cli_usage():
     print()
     print("📁 Convert all files in a directory:")
     print("   markdown-converter batch input_dir output_dir --workers 4")
-    print()
-    print("🌐 Convert using grid processing:")
-    print("   markdown-converter grid input_dir output_dir --workers 8")
     print()
     print("ℹ️  Show supported formats:")
     print("   markdown-converter formats")

@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.markdown_converter.cli import cli
 from src.markdown_converter.config import ConfigManager
-from src.markdown_converter.core.exceptions import ConversionError, BatchProcessingError
+from src.markdown_converter.core.exceptions import ConversionError
 
 
 class TestCLI:
@@ -67,38 +67,38 @@ class TestCLI:
             'markdown-converter', 'convert', 
             str(sample_file), str(output_file)
         ]):
-            with patch('src.markdown_converter.cli.ConversionEngine') as mock_engine:
-                mock_engine.return_value.convert_document.return_value = "Converted content"
+            with patch('src.markdown_converter.cli.MainConverter') as mock_converter:
+                mock_converter.return_value.convert_document.return_value = "Converted content"
                 
                 try:
                     cli()
                 except SystemExit:
                     pass  # Expected behavior
                 
-                mock_engine.return_value.convert_document.assert_called_once()
+                mock_converter.return_value.convert_document.assert_called_once()
     
     def test_convert_single_file_auto_output(self, sample_file):
         """Test single file conversion with auto-generated output path."""
         with patch('sys.argv', [
             'markdown-converter', 'convert', str(sample_file)
         ]):
-            with patch('src.markdown_converter.cli.ConversionEngine') as mock_engine:
-                mock_engine.return_value.convert_document.return_value = "Converted content"
+            with patch('src.markdown_converter.cli.MainConverter') as mock_converter:
+                mock_converter.return_value.convert_document.return_value = "Converted content"
                 
                 try:
                     cli()
                 except SystemExit:
                     pass  # Expected behavior
                 
-                mock_engine.return_value.convert_document.assert_called_once()
+                mock_converter.return_value.convert_document.assert_called_once()
     
     def test_convert_single_file_error(self, sample_file):
         """Test single file conversion with error."""
         with patch('sys.argv', [
             'markdown-converter', 'convert', str(sample_file)
         ]):
-            with patch('src.markdown_converter.core.engine.ConversionEngine') as mock_engine:
-                mock_engine.return_value.convert_document.side_effect = ConversionError("Test error")
+            with patch('src.markdown_converter.core.converter.MainConverter') as mock_converter:
+                mock_converter.return_value.convert_document.side_effect = ConversionError("Test error")
                 
                 with pytest.raises(SystemExit):
                     cli()
@@ -134,7 +134,7 @@ class TestCLI:
             'markdown-converter', 'batch', str(sample_dir)
         ]):
             with patch('src.markdown_converter.cli.BatchProcessor') as mock_processor:
-                mock_processor.return_value.process_directory.side_effect = BatchProcessingError("Test error")
+                mock_processor.return_value.process_directory.side_effect = ConversionError("Test error")
                 
                 with pytest.raises(SystemExit):
                     cli()

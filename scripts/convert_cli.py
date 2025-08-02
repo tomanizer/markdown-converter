@@ -9,11 +9,38 @@ It demonstrates how to use the ConversionEngine from the command line.
 import argparse
 import sys
 from pathlib import Path
+from typing import List
 
 # Add the project root to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.markdown_converter.core import ConversionEngine, FilesystemManager
+from src.markdown_converter.core import MainConverter
+
+
+def find_supported_files(directory: Path) -> List[Path]:
+    """
+    Find all supported files in a directory.
+    
+    :param directory: Directory to search
+    :return: List of supported file paths
+    """
+    supported_extensions = [
+        '.docx', '.doc', '.pdf', '.html', '.htm', '.xlsx', '.xls',
+        '.odt', '.rtf', '.epub', '.txt', '.md', '.msg', '.eml'
+    ]
+    
+    files = []
+    for ext in supported_extensions:
+        files.extend(directory.rglob(f"*{ext}"))
+    
+    # Filter out hidden files and ensure files are readable
+    filtered_files = []
+    for file_path in files:
+        if not any(part.startswith('.') for part in file_path.parts):
+            if file_path.is_file() and file_path.stat().st_size < 100 * 1024 * 1024:  # 100MB limit
+                filtered_files.append(file_path)
+    
+    return sorted(filtered_files)
 
 
 def convert_single_file(input_path: str, output_path: str = None) -> bool:
@@ -22,23 +49,32 @@ def convert_single_file(input_path: str, output_path: str = None) -> bool:
     
     :param input_path: Path to input file
     :param output_path: Path to output file (optional)
-    :return: True if conversion successful, False otherwise
+    :return: True if conversion was successful
     """
-    if not Path(input_path).exists():
+    input_file = Path(input_path)
+    
+    if not input_file.exists():
         print(f"❌ Input file does not exist: {input_path}")
         return False
     
-    # Generate output path if not provided
     if output_path is None:
-        input_file = Path(input_path)
-        output_path = str(input_file.with_suffix('.md'))
+        output_file = input_file.with_suffix('.md')
+    else:
+        output_file = Path(output_path)
     
-    engine = ConversionEngine()
+    converter = MainConverter()
     
     try:
-        result = engine.convert_document(input_path, output_path)
-        print(f"✅ Successfully converted {input_path} to {output_path}")
-        return True
+        print(f"🔄 Converting {input_file} to {output_file}...")
+        result = converter.convert_file(input_file, output_file)
+        
+        if result.success:
+            print(f"✅ Successfully converted {input_file} to {output_file}")
+            return True
+        else:
+            print(f"❌ Conversion failed: {result.error_message}")
+            return False
+            
     except Exception as e:
         print(f"❌ Conversion failed: {e}")
         return False
@@ -48,24 +84,30 @@ def convert_directory(input_dir: str, output_dir: str = None) -> bool:
     """
     Convert all supported files in a directory.
     
-    :param input_dir: Input directory path
-    :param output_dir: Output directory path (optional)
-    :return: True if all conversions successful, False otherwise
+    :param input_dir: Path to input directory
+    :param output_dir: Path to output directory (optional)
+    :return: True if all conversions were successful
     """
-    if not Path(input_dir).exists():
+    input_path = Path(input_dir)
+    
+    if not input_path.exists():
         print(f"❌ Input directory does not exist: {input_dir}")
         return False
     
-    # Generate output directory if not provided
-    if output_dir is None:
-        output_dir = f"{input_dir}_converted"
+    if not input_path.is_dir():
+        print(f"❌ Input path is not a directory: {input_dir}")
+        return False
     
-    fs_manager = FilesystemManager()
-    engine = ConversionEngine()
+    if output_dir is None:
+        output_path = Path(f"{input_dir}_converted")
+    else:
+        output_path = Path(output_dir)
+    
+    converter = MainConverter()
     
     try:
         # Find all supported files
-        files = fs_manager.find_files(input_dir)
+        files = find_supported_files(input_path)
         
         if not files:
             print(f"❌ No supported files found in {input_dir}")
@@ -74,7 +116,25 @@ def convert_directory(input_dir: str, output_dir: str = None) -> bool:
         print(f"🔄 Found {len(files)} files to convert...")
         
         # Convert files in batch
-        results = engine.batch_convert(files, output_dir)
+        # Note: MainConverter doesn't have batch_convert, so we'll convert one by one
+        results = []
+        for file_path in files:
+            try:
+                output_file = output_path / f"{file_path.stem}.md"
+                result = converter.convert_file(file_path, output_file)
+                results.append({
+                    'input_file': file_path,
+                    'output_file': str(output_file),
+                    'success': result.success,
+                    'error': result.error_message
+                })
+            except Exception as e:
+                results.append({
+                    'input_file': file_path,
+                    'output_file': None,
+                    'success': False,
+                    'error': str(e)
+                })
         
         # Report results
         successful = [r for r in results if r["success"]]
@@ -103,8 +163,8 @@ def convert_directory(input_dir: str, output_dir: str = None) -> bool:
 
 def show_supported_formats():
     """Show supported input and output formats."""
-    engine = ConversionEngine()
-    formats = engine.pandoc_engine.get_supported_formats()
+    converter = MainConverter()
+    formats = converter.get_supported_formats()
     
     print("📋 Supported Formats:")
     print("   Input formats:")

@@ -21,11 +21,7 @@ import psutil
 import os
 
 from .core.exceptions import (
-    MarkdownConverterError, 
-    RetryableError, 
-    ConversionError,
-    BatchProcessingError,
-    GridProcessingError
+    ConversionError
 )
 
 
@@ -144,7 +140,7 @@ class RetryHandler:
         for attempt in range(self.max_retries + 1):
             try:
                 return operation(*args, **kwargs)
-            except RetryableError as e:
+            except ConversionError as e:
                 last_exception = e
                 if attempt < self.max_retries:
                     delay = min(self.base_delay * (2 ** attempt), self.max_delay)

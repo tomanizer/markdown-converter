@@ -9,6 +9,7 @@ from .word_parser import WordParser
 from .pdf_parser import PDFParser
 from .excel_parser import ExcelParser
 from .html_parser import HTMLParser
+from .pandoc_parser import PandocParser
 
 __all__ = [
     "BaseParser",
@@ -19,4 +20,5 @@ __all__ = [
     "PDFParser",
     "ExcelParser",
     "HTMLParser",
+    "PandocParser",
 ]
