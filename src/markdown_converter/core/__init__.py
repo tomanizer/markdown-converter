@@ -18,11 +18,16 @@ from .exceptions import (
     ValidationError,
     RetryableError,
     ConversionError,
+    BatchProcessingError,
+    GridProcessingError,
+    DependencyError,
 )
 
 from .engine import PandocEngine, ConversionEngine
 from .filesystem import FilesystemManager
 from .file_converter import FileConverter
+from .batch_processor import BatchProcessor, ProcessingStats, ProcessingResult
+from .grid_processor import GridProcessor, ClusterInfo, JobInfo
 from .utils import (
     get_file_extension,
     validate_file_path,
@@ -54,6 +59,9 @@ __all__ = [
     "ValidationError",
     "RetryableError",
     "ConversionError",
+    "BatchProcessingError",
+    "GridProcessingError",
+    "DependencyError",
     # Engine components
     "PandocEngine",
     "ConversionEngine",
@@ -61,6 +69,14 @@ __all__ = [
     "FilesystemManager",
     # File conversion components
     "FileConverter",
+    # Batch processing components
+    "BatchProcessor",
+    "ProcessingStats",
+    "ProcessingResult",
+    # Grid processing components
+    "GridProcessor",
+    "ClusterInfo",
+    "JobInfo",
     # Utility functions
     "get_file_extension",
     "validate_file_path",

@@ -313,6 +313,10 @@ class TableProcessor(BaseProcessor):
             if format_type == 'markdown':
                 # Remove leading/trailing pipes and split
                 cells = [cell.strip() for cell in line.strip('|').split('|')]
+                
+                # Skip separator lines (lines with only dashes)
+                if all(cell.replace('-', '') == '' for cell in cells):
+                    continue
             elif format_type == 'csv':
                 # Simple CSV parsing (no escaping for now)
                 cells = [cell.strip() for cell in line.split(',')]
@@ -468,10 +472,12 @@ class TableProcessor(BaseProcessor):
             
             # Handle separator lines (dashes)
             if (line.startswith('|') and line.endswith('|') and 
-                all(cell.strip() in ['', '-', '--', '---', '--------', '------------'] for cell in line.strip('|').split('|')) and
+                all(cell.strip().replace('-', '') == '' for cell in line.strip('|').split('|')) and
                 not any('|' in cell for cell in line.strip('|').split('|'))):
-                # This is a separator line, keep it as is
-                cleaned_lines.append(line)
+                # This is a separator line, format it properly
+                cells = [cell.strip() for cell in line.strip('|').split('|')]
+                cleaned_line = "| " + " | ".join(cells) + " |"
+                cleaned_lines.append(cleaned_line)
                 continue
             
             # Ensure proper pipe formatting
