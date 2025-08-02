@@ -6,8 +6,6 @@ using beautifulsoup4 for HTML parsing and cleaning.
 """
 
 import logging
-import os
-import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 

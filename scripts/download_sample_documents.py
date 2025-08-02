@@ -8,16 +8,16 @@ and websites to provide realistic test cases for the markdown converter.
 
 import os
 import sys
-from pathlib import Path
-import urllib.request
 import urllib.error
+import urllib.request
+from pathlib import Path
 from typing import Dict, List, Optional
 
 
 def download_file(url: str, local_path: Path) -> bool:
     """
     Download a file from URL to local path.
-    
+
     :param url: URL to download from
     :param local_path: Local path to save to
     :return: True if successful, False otherwise
@@ -37,10 +37,10 @@ def download_file(url: str, local_path: Path) -> bool:
 
 def create_sample_documents() -> None:
     """Create sample documents manually since web downloads may not be reliable."""
-    
+
     test_dir = Path("test_documents")
     test_dir.mkdir(exist_ok=True)
-    
+
     # Create a more comprehensive HTML document
     html_content = """<!DOCTYPE html>
 <html lang="en">
@@ -57,17 +57,17 @@ def create_sample_documents() -> None:
 </head>
 <body>
     <h1>Comprehensive Test Document</h1>
-    
+
     <h2>Introduction</h2>
     <p>This is a comprehensive test document with various HTML elements to test the markdown converter.</p>
-    
+
     <h2>Features</h2>
     <ul>
         <li><strong>Bold text</strong> and <em>italic text</em></li>
         <li><a href="https://example.com">Links</a> and <code>code snippets</code></li>
         <li>Lists and nested elements</li>
     </ul>
-    
+
     <h2>Data Table</h2>
     <table>
         <thead>
@@ -99,12 +99,12 @@ def create_sample_documents() -> None:
             </tr>
         </tbody>
     </table>
-    
+
     <h2>Code Example</h2>
     <pre><code>def hello_world():
     print("Hello, World!")
     return "Success"</code></pre>
-    
+
     <h2>Conclusion</h2>
     <p>This document contains various HTML elements including:</p>
     <ol>
@@ -115,15 +115,15 @@ def create_sample_documents() -> None:
         <li>Code blocks and inline code</li>
         <li>Links and emphasis</li>
     </ol>
-    
+
     <hr>
     <p><small>Generated for testing purposes</small></p>
 </body>
 </html>"""
-    
+
     with open(test_dir / "comprehensive_test.html", "w", encoding="utf-8") as f:
         f.write(html_content)
-    
+
     # Create a complex text document
     text_content = """COMPREHENSIVE TEST DOCUMENT
 ===============================
@@ -192,10 +192,10 @@ are commonly encountered in real-world documents.
 ---
 End of Document
 """
-    
+
     with open(test_dir / "comprehensive_test.txt", "w", encoding="utf-8") as f:
         f.write(text_content)
-    
+
     # Create a CSV file (Excel-like)
     csv_content = """Product,Category,Price,Stock,Rating,Description
 Laptop Pro,Electronics,1299.99,45,4.8,High-performance laptop for professionals
@@ -204,33 +204,33 @@ USB Cable,Accessories,9.99,200,4.2,High-speed USB 3.0 cable
 Monitor 27",Electronics,299.99,30,4.7,27-inch 4K monitor
 Keyboard,Accessories,89.99,60,4.6,Mechanical gaming keyboard
 Headphones,Electronics,199.99,25,4.9,Noise-cancelling wireless headphones"""
-    
+
     with open(test_dir / "product_catalog.csv", "w", encoding="utf-8") as f:
         f.write(csv_content)
-    
+
     print("✅ Created comprehensive test documents")
 
 
 def main() -> None:
     """Main function to download/create sample documents."""
-    
+
     print("🔧 Setting up sample documents for testing...")
-    
+
     # Create comprehensive test documents
     create_sample_documents()
-    
+
     # List available test files
     test_dir = Path("test_documents")
     print(f"\n📁 Test documents available in: {test_dir.absolute()}")
     print("📋 Available test files:")
-    
+
     for file in sorted(test_dir.glob("*")):
         size = file.stat().st_size
         print(f"   - {file.name} ({size} bytes)")
-    
+
     print("\n🎯 Ready for testing!")
     print("💡 You can now use these files to test the markdown converter functionality.")
 
 
 if __name__ == "__main__":
-    main() 
+    main()

@@ -5,22 +5,18 @@ This module provides utilities to create test documents in various formats
 for testing the markdown converter functionality.
 """
 
-import json
-import os
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict
 
 try:
     from docx import Document
     from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.shared import Inches
 
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
 
 try:
-    import openpyxl
     from openpyxl import Workbook
 
     EXCEL_AVAILABLE = True

@@ -104,7 +104,7 @@ pandoc 100MB_document.docx -o output.md
 def convert_with_memory_management(file_path):
     process = psutil.Process()
     memory_before = process.memory_info().rss
-    
+
     try:
         result = convert_document(file_path)
         return result
@@ -118,7 +118,7 @@ def convert_with_memory_management(file_path):
 ## Specific Improvements for Your 5GB Use Case
 
 ### 1. **Large-Scale Processing**
-**Pandoc Limitation**: 
+**Pandoc Limitation**:
 ```bash
 # Manual approach - time consuming
 find . -name "*.docx" -exec pandoc {} -o {}.md \;
@@ -131,19 +131,19 @@ find . -name "*.docx" -exec pandoc {} -o {}.md \;
 def process_5gb_collection(input_dir, output_dir):
     # Discover all files
     files = discover_files(input_dir, patterns=['*.docx', '*.pdf'])
-    
+
     # Process in parallel with progress
     results = process_batch_parallel(
-        files, 
-        output_dir, 
+        files,
+        output_dir,
         workers=cpu_count(),
         progress_callback=update_progress
     )
-    
+
     # Report results
     successful = [r for r in results if r[2] == 'success']
     failed = [r for r in results if r[2] != 'success']
-    
+
     print(f"Processed {len(successful)} files successfully")
     print(f"Failed: {len(failed)} files")
 ```
@@ -165,13 +165,13 @@ def convert_with_preservation(file_path):
             return result
     except:
         pass
-    
+
     # Fallback to format-specific extraction
     if file_path.endswith('.docx'):
         return extract_with_python_docx(file_path)
     elif file_path.endswith('.pdf'):
         return extract_with_pdfplumber(file_path)
-    
+
     # Last resort - extract all text
     return extract_all_text(file_path)
 ```
@@ -189,11 +189,11 @@ pandoc file.docx -o file.md
 # Our approach - grid computing support
 def process_with_grid(file_list, cluster_config):
     client = Client(cluster_config)  # Connect to cluster
-    
+
     # Distribute work across nodes
     df = dd.from_pandas(pd.DataFrame({'files': file_list}))
     results = df.map_partitions(process_partition).compute()
-    
+
     return results
 ```
 
@@ -270,4 +270,4 @@ results = convert_directory(
 
 ## Conclusion
 
-While Pandoc is excellent for single-file conversions, our tool transforms it into a **production-ready, large-scale document processing system** specifically optimized for LLM workflows. We don't replace Pandoc - we enhance it with the features needed for your specific use case. 
+While Pandoc is excellent for single-file conversions, our tool transforms it into a **production-ready, large-scale document processing system** specifically optimized for LLM workflows. We don't replace Pandoc - we enhance it with the features needed for your specific use case.

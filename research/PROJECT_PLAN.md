@@ -58,7 +58,7 @@ markdown_converter/
 ├── core/                 # Core conversion logic
 ├── parsers/              # Input format parsers
 │   ├── word.py          # Word documents
-│   ├── pdf.py           # PDF documents  
+│   ├── pdf.py           # PDF documents
 │   ├── excel.py         # Excel spreadsheets
 │   ├── html.py          # HTML files
 │   └── email.py         # Outlook emails
@@ -89,9 +89,9 @@ markdown_converter/
 ## Risks & Mitigation
 - **Technical**: Complex PDF extraction, table preservation
 - **Mitigation**: Use proven libraries (pandoc, pdfplumber)
-- **Timeline**: Feature creep, format edge cases  
+- **Timeline**: Feature creep, format edge cases
 - **Mitigation**: Strict phase boundaries, comprehensive testing
 
 ## Timeline: 8 weeks total
 - Phase 1-2: Core functionality (4 weeks)
-- Phase 3-4: Web service & release (4 weeks) 
+- Phase 3-4: Web service & release (4 weeks)

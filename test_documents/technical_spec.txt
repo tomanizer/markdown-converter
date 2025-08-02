@@ -1,31 +1,30 @@
 
             TECHNICAL SPECIFICATION
             =======================
-            
+
             Project: Markdown Converter
             Version: 1.0.0
             Date: 2024-01-15
-            
+
             OVERVIEW
             --------
             This document outlines the technical specifications for the markdown converter tool.
-            
+
             REQUIREMENTS
             ------------
             1. Support multiple input formats
             2. Preserve document structure
             3. Handle large files efficiently
             4. Provide clean markdown output
-            
+
             TECHNICAL DETAILS
             -----------------
             - Python 3.12+
             - Pandoc integration
             - Parallel processing support
             - Memory-efficient processing
-            
+
             IMPLEMENTATION NOTES
             --------------------
             The converter uses a modular architecture with format-specific parsers
             and a unified output formatter.
-            

@@ -65,8 +65,8 @@ FileResult = Tuple[str, Optional[str], str]  # (file_path, output_path, status)
 ConversionConfig = Dict[str, Union[str, int, bool]]
 
 def convert_batch(
-    file_list: List[Path], 
-    output_dir: Path, 
+    file_list: List[Path],
+    output_dir: Path,
     config: Optional[ConversionConfig] = None
 ) -> List[FileResult]:
     """Convert multiple files with type hints."""
@@ -112,7 +112,7 @@ logger = structlog.get_logger()
 def process_document(file_path: str) -> str:
     """Process a document with proper logging."""
     logger.info("Starting document processing", file_path=file_path)
-    
+
     try:
         result = convert_document(file_path)
         logger.info("Document processed successfully", file_path=file_path)
@@ -177,19 +177,19 @@ def convert_with_retry(file_path: str) -> str:
 ```python
 class DocumentConverter:
     """Convert various document formats to markdown.
-    
+
     This class provides functionality to convert Word, PDF, Excel, and other
     document formats to clean, readable markdown optimized for LLM processing.
-    
+
     :param config: Configuration options for conversion
     :type config: Optional[Dict[str, Any]]
     :param logger: Logger instance for output
     :type logger: Optional[structlog.BoundLogger]
     """
-    
+
     def convert_file(self, file_path: str, output_path: Optional[str] = None) -> str:
         """Convert a single file to markdown format.
-        
+
         :param file_path: Path to the input document
         :type file_path: str
         :param output_path: Optional path for output file
@@ -199,10 +199,10 @@ class DocumentConverter:
         :raises ConversionError: If conversion fails
         :raises FileNotFoundError: If input file doesn't exist
         :raises ValueError: If file format is not supported
-        
+
         :note: This method will attempt multiple conversion strategies
                if the primary method fails.
-        
+
         :example:
             >>> converter = DocumentConverter()
             >>> result = converter.convert_file("document.docx")
@@ -224,16 +224,16 @@ class DocumentConverter:
 ```python
 class TestWordParser:
     """Test cases for Word document parser."""
-    
+
     def test_basic_conversion(self):
         """Test basic Word to markdown conversion."""
         # Arrange
         input_file = "test_files/sample.docx"
         expected_content = "# Sample Document"
-        
+
         # Act
         result = WordParser().convert(input_file)
-        
+
         # Assert
         assert expected_content in result
 ```
@@ -258,4 +258,4 @@ class TestWordParser:
 - [ ] Code coverage >90%
 - [ ] No security vulnerabilities
 - [ ] Documentation updated
-- [ ] Performance benchmarks met 
+- [ ] Performance benchmarks met

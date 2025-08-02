@@ -101,10 +101,10 @@ logger = structlog.get_logger()
 
 class WordParser:
     """Parse Word documents to markdown with fallback strategies."""
-    
+
     def convert(self, file_path: str) -> str:
         """Convert Word document to markdown.
-        
+
         :param file_path: Path to Word document
         :type file_path: str
         :return: Markdown content
@@ -112,7 +112,7 @@ class WordParser:
         :raises ConversionError: If all conversion methods fail
         """
         logger.info("Starting Word document conversion", file_path=file_path)
-        
+
         # Try pandoc first
         try:
             result = self._convert_with_pandoc(file_path)
@@ -120,7 +120,7 @@ class WordParser:
             return result
         except Exception as e:
             logger.warning("Pandoc failed, trying python-docx", file_path=file_path, error=str(e))
-            
+
         # Try format-specific parser
         try:
             result = self._convert_with_python_docx(file_path)
@@ -128,7 +128,7 @@ class WordParser:
             return result
         except Exception as e:
             logger.warning("python-docx failed, extracting all text", file_path=file_path, error=str(e))
-            
+
         # Last resort: extract all text
         result = self._extract_all_text(file_path)
         logger.info("Word conversion completed with text extraction", file_path=file_path)
@@ -229,4 +229,4 @@ Help me add robust error handling to markdown-converter that:
 4. **Focus on Information Preservation**: Never lose content, formatting is secondary
 5. **Consider Scale**: Design for 5GB processing, not just single files
 
-Remember: The primary goal is **information extraction for LLM processing**, not perfect visual formatting! 
+Remember: The primary goal is **information extraction for LLM processing**, not perfect visual formatting!

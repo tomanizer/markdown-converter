@@ -20,4 +20,4 @@ A clear and concise description of any alternative solutions or features you've 
 Add any other context or screenshots about the feature request here.
 
 **Use case**
-How would this feature be used? What type of documents would benefit from this? 
+How would this feature be used? What type of documents would benefit from this?

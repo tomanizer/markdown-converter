@@ -311,4 +311,4 @@ src/markdown_converter/
 - [ ] Professional project structure
 - [ ] PyPI-ready package
 
-This step-by-step plan ensures we build a robust, production-ready document-to-markdown converter optimized for your 5GB LLM processing workflow. 
+This step-by-step plan ensures we build a robust, production-ready document-to-markdown converter optimized for your 5GB LLM processing workflow.

@@ -118,4 +118,4 @@ While several tools exist for document-to-markdown conversion, none specifically
 4. Robust error handling
 5. Information preservation over visual fidelity
 
-Our tool fills these gaps and provides unique value for LLM processing workflows. 
+Our tool fills these gaps and provides unique value for LLM processing workflows.

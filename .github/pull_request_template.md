@@ -23,4 +23,4 @@ Brief description of changes made in this PR.
 - [ ] Tests pass with >90% coverage
 
 ## Additional Notes
-Any additional information that reviewers should know about this PR. 
+Any additional information that reviewers should know about this PR.

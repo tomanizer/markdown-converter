@@ -13,12 +13,12 @@ import fsspec
 def process_files_with_fsspec(file_paths, output_dir):
     """Handle files from various sources (local, S3, etc.)"""
     fs = fsspec.filesystem('file')  # or 's3', 'gcs', etc.
-    
+
     for file_path in file_paths:
         with fs.open(file_path, 'rb') as f:
             # Process file
             result = convert_document(f)
-            
+
         # Save to output directory
         output_path = Path(output_dir) / Path(file_path).stem / '.md'
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -130,26 +130,26 @@ def process_file_batch(file_paths, output_dir, fs=None):
     """Process files with robust path handling"""
     if fs is None:
         fs = setup_file_system()
-    
+
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    
+
     results = []
     for file_path in file_paths:
         try:
             with fs.open(file_path, 'rb') as f:
                 result = convert_document(f)
-                
+
             # Create output path preserving directory structure
             relative_path = Path(file_path).relative_to(Path.cwd())
             output_file = output_path / relative_path.with_suffix('.md')
             output_file.parent.mkdir(parents=True, exist_ok=True)
             output_file.write_text(result)
-            
+
             results.append((file_path, output_file, 'success'))
         except Exception as e:
             results.append((file_path, None, str(e)))
-    
+
     return results
 ```
 
@@ -164,7 +164,7 @@ def convert_with_pandoc(input_file, output_file):
     """Primary conversion using pandoc"""
     try:
         result = pypandoc.convert_file(
-            input_file, 
+            input_file,
             'markdown',
             outputfile=output_file,
             extra_args=['--wrap=none', '--markdown-headings=atx']
@@ -191,7 +191,7 @@ def convert_word_document(file_path):
             return result.value
     except Exception as e:
         logger.warning(f"Mammoth failed: {e}")
-        
+
         # Fallback to python-docx
         try:
             return convert_with_python_docx(file_path)
@@ -217,7 +217,7 @@ def convert_pdf_document(file_path):
             return convert_to_markdown(text, tables)
     except Exception as e:
         logger.warning(f"Pdfplumber failed: {e}")
-        
+
         # Fallback to PyMuPDF
         try:
             return convert_with_pymupdf(file_path)
@@ -261,13 +261,13 @@ def process_batch_parallel(file_list, output_dir, fs_protocol='file'):
     """Parallel processing with robust path handling"""
     # Setup multiprocessing logging
     multiprocessing_logging.install_mp_handler()
-    
+
     # Setup filesystem
     fs = fsspec.filesystem(fs_protocol)
-    
+
     # Prepare arguments for parallel processing
     args = [(file_path, output_dir, fs_protocol) for file_path in file_list]
-    
+
     # Use all available cores
     with Pool(processes=cpu_count()) as pool:
         results = pool.map(convert_single_file_parallel, args)
@@ -276,17 +276,17 @@ def process_batch_parallel(file_list, output_dir, fs_protocol='file'):
 def convert_single_file_parallel(args):
     """Convert single file with path handling"""
     file_path, output_dir, fs_protocol = args
-    
+
     try:
         fs = fsspec.filesystem(fs_protocol)
         with fs.open(file_path, 'rb') as f:
             result = convert_document(f)
-        
+
         # Create output path
         output_path = Path(output_dir) / Path(file_path).stem / '.md'
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(result)
-        
+
         return (file_path, output_path, 'success')
     except Exception as e:
         return (file_path, None, str(e))
@@ -308,20 +308,20 @@ import fsspec
 def process_with_dask(file_list, output_dir, fs_protocol='file'):
     """Distributed processing with robust path handling"""
     client = Client()  # Connect to cluster
-    
+
     # Setup filesystem
     fs = fsspec.filesystem(fs_protocol)
-    
+
     # Create dask dataframe with filesystem info
     df = dd.from_pandas(
         pd.DataFrame({
             'files': file_list,
             'fs_protocol': [fs_protocol] * len(file_list),
             'output_dir': [output_dir] * len(file_list)
-        }), 
+        }),
         npartitions=len(file_list)
     )
-    
+
     # Process in parallel
     results = df.map_partitions(process_partition_with_fs).compute()
     return results
@@ -334,16 +334,16 @@ def process_partition_with_fs(partition):
             fs = fsspec.filesystem(row['fs_protocol'])
             with fs.open(row['files'], 'rb') as f:
                 result = convert_document(f)
-            
+
             # Create output path
             output_path = Path(row['output_dir']) / Path(row['files']).stem / '.md'
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(result)
-            
+
             results.append((row['files'], output_path, 'success'))
         except Exception as e:
             results.append((row['files'], None, str(e)))
-    
+
     return pd.DataFrame(results, columns=['file', 'output', 'status'])
 ```
 
@@ -375,7 +375,7 @@ def convert_with_fallbacks(file_path):
         convert_with_format_specific,
         convert_with_generic_parser
     ]
-    
+
     for converter in converters:
         try:
             result = converter(file_path)
@@ -384,7 +384,7 @@ def convert_with_fallbacks(file_path):
         except Exception as e:
             logger.warning(f"Converter {converter.__name__} failed: {e}")
             continue
-    
+
     logger.error(f"All converters failed for {file_path}")
     return None
 ```
@@ -415,14 +415,14 @@ import gc
 def convert_with_memory_management(file_path):
     """Monitor and manage memory usage"""
     process = psutil.Process()
-    
+
     try:
         result = convert_document(file_path)
         return result
     finally:
         # Force garbage collection
         gc.collect()
-        
+
         # Log memory usage
         memory_info = process.memory_info()
         logger.info(f"Memory used: {memory_info.rss / 1024 / 1024:.2f} MB")
@@ -477,4 +477,4 @@ This integration strategy gives us the best of both worlds: proven reliability f
 - `distributed` - Dask distributed scheduler
 - `tenacity` - Retry logic
 - `diskcache` - Caching
-- `psutil` - Memory management 
+- `psutil` - Memory management

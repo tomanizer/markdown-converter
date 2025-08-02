@@ -1,5 +1,5 @@
 # Markdown Converter - Requirements
-# 
+#
 # This file includes all dependencies needed for development, testing, and production.
 # For specific environments, see the requirements/ directory.
 
@@ -134,4 +134,4 @@ pywin32>=306; sys_platform == "win32"
 # Note: pandoc 3.7+ needs to be installed separately via system package managers:
 # macOS: brew install pandoc
 # Ubuntu: sudo apt-get install pandoc
-# Windows: Download from https://pandoc.org/installing.html 
+# Windows: Download from https://pandoc.org/installing.html

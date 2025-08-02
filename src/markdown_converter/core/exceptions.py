@@ -5,7 +5,7 @@ This module defines custom exception classes for the markdown converter.
 These exceptions provide specific error handling for different components.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 
 class ParserError(Exception):

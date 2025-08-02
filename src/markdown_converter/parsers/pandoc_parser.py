@@ -6,9 +6,7 @@ transparent within the parser registry architecture.
 """
 
 import logging
-import os
 import subprocess
-import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -292,7 +290,7 @@ class PandocParser(BaseParser):
         try:
             info = self.get_conversion_info(file_path)
             return info["is_supported"]
-        except:
+        except Exception:
             return False
 
     def parse(self, file_path: Union[str, Path]) -> ParserResult:

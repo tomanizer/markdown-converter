@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from ..core.exceptions import ParserError, UnsupportedFormatError
+from ..core.exceptions import ParserError
 
 
 @dataclass

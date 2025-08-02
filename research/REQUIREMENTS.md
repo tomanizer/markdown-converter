@@ -8,7 +8,7 @@ A Python-based tool for converting various document formats to clean, readable m
 ### 1. Input Format Support
 **Priority Order:**
 1. **Word documents (.docx)** - Primary focus
-2. **PDF documents (.pdf)** - Primary focus  
+2. **PDF documents (.pdf)** - Primary focus
 3. **Outlook emails (.msg)** - Secondary
 4. **Excel spreadsheets (.xlsx)** - Secondary (even if weird markdown)
 5. **PowerPoint (.pptx)** - Future
@@ -210,4 +210,4 @@ A Python-based tool for converting various document formats to clean, readable m
 - Modular architecture
 - Comprehensive testing
 - Clear documentation
-- MIT license for open source 
+- MIT license for open source

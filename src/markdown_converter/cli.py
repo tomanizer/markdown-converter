@@ -9,12 +9,12 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import click
 import yaml
 
-from .core.converter import ConversionResult, DirectoryConversionResult, MainConverter
+from .core.converter import MainConverter
 from .core.exceptions import ConversionError
 
 
@@ -120,7 +120,7 @@ def print_processing_stats(stats: Any) -> None:
     :param stats: Processing statistics object
     """
     if hasattr(stats, "total_files"):
-        click.echo(f"\n📊 Processing Statistics:")
+        click.echo("\n📊 Processing Statistics:")
         click.echo(f"  Total files: {stats.total_files}")
         click.echo(f"  Processed: {stats.processed_files}")
         click.echo(f"  Failed: {stats.failed_files}")
@@ -223,7 +223,7 @@ def convert(
             # Log success with file size info
             file_size = input_file.stat().st_size / (1024 * 1024)  # MB
             logging.info(
-                f"File conversion completed successfully",
+                "File conversion completed successfully",
                 extra={
                     "input_file": str(input_file),
                     "output_file": str(output_file),
@@ -333,7 +333,7 @@ def batch(
             if not continue_on_error:
                 sys.exit(1)
         else:
-            click.echo(f"\n✅ All files converted successfully!")
+            click.echo("\n✅ All files converted successfully!")
 
     except ConversionError as e:
         click.echo(f"❌ Batch processing error: {e}")
@@ -569,7 +569,7 @@ def list_parsers(ctx: click.Context, json: bool) -> None:
             click.echo("🔧 Available Parsers:")
             for parser_name in formats["input"]:
                 click.echo(f"  • {parser_name}")
-            click.echo(f"\n📤 Output Formats:")
+            click.echo("\n📤 Output Formats:")
             for output_format in formats["output"]:
                 click.echo(f"  • {output_format}")
 
@@ -647,7 +647,6 @@ def test(
 @click.pass_context
 def clean(ctx: click.Context, temp_dirs: bool, log_files: bool, all: bool) -> None:
     """Clean up temporary files and directories."""
-    import glob
     import shutil
 
     cleaned_count = 0

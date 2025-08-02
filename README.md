@@ -299,4 +299,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Documentation**: [https://markdown-converter.readthedocs.io](https://markdown-converter.readthedocs.io)
 - **Issues**: [GitHub Issues](https://github.com/yourusername/markdown-converter/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/markdown-converter/discussions) 
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/markdown-converter/discussions)

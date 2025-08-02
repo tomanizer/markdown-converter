@@ -6,8 +6,6 @@ using mammoth as the primary processor and python-docx as a fallback.
 """
 
 import logging
-import os
-import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 

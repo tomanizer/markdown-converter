@@ -6,8 +6,6 @@ using pdfplumber as the primary processor and PyMuPDF as a fallback.
 """
 
 import logging
-import os
-import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 

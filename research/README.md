@@ -89,4 +89,4 @@ As the project evolves, these documents may need updates to reflect:
 - Performance optimizations found
 - Additional features added
 
-Keep these documents updated to maintain project alignment and provide context for future contributors. 
+Keep these documents updated to maintain project alignment and provide context for future contributors.

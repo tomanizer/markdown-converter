@@ -7,15 +7,14 @@ first, then falls back to custom parsers.
 """
 
 import logging
-import tempfile
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from ..parsers.base import ParserResult, parser_registry
-from .exceptions import ConversionError, UnsupportedFormatError
+from ..parsers.base import parser_registry
+from .exceptions import ConversionError
 
 
 @dataclass
