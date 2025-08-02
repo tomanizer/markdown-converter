@@ -122,6 +122,9 @@ class BatchProcessor:
             start_time=time.time()
         )
         
+        # Initialize shutdown flag
+        self._shutdown_requested = False
+        
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
@@ -214,28 +217,29 @@ class BatchProcessor:
     
     def _process_files_parallel(self, files: List[Path], output_dir: Path) -> List[ProcessingResult]:
         """
-        Process files in parallel using worker pools.
+        Process files in parallel using worker processes.
         
         :param files: List of files to process
         :param output_dir: Output directory
         :return: List of processing results
         """
         results = []
-        self._shutdown_requested = False
         
-        # Split files into batches
+        # Create batches
         batches = self._create_batches(files)
         
-        # Process batches with progress tracking
-        with ProcessPoolExecutor(max_workers=self.default_config["max_workers"]) as executor:
-            # Submit all batches
+        # Use ProcessPoolExecutor for parallel processing
+        max_workers = min(self.default_config["max_workers"], len(batches))
+        
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            # Submit batch processing jobs
             future_to_batch = {
-                executor.submit(self._process_batch, batch, output_dir): batch
+                executor.submit(self._process_batch_worker, batch, str(output_dir)): batch
                 for batch in batches
             }
             
-            # Collect results as they complete
-            for future in as_completed(future_to_batch, timeout=self.default_config["worker_timeout"]):
+            # Collect results
+            for future in as_completed(future_to_batch):
                 if self._shutdown_requested:
                     self.logger.info("Shutdown requested, stopping processing")
                     break
@@ -260,43 +264,29 @@ class BatchProcessor:
         
         return results
     
-    def _create_batches(self, files: List[Path]) -> List[List[Path]]:
-        """
-        Create batches of files for processing.
-        
-        :param files: List of files
-        :return: List of file batches
-        """
-        batch_size = self.default_config["batch_size"]
-        return [files[i:i + batch_size] for i in range(0, len(files), batch_size)]
-    
-    def _process_batch(self, batch: List[Path], output_dir: Path) -> List[ProcessingResult]:
+    @staticmethod
+    def _process_batch_worker(batch: List[Path], output_dir_str: str) -> List[ProcessingResult]:
         """
         Process a batch of files (runs in worker process).
         
         :param batch: List of files to process
-        :param output_dir: Output directory
+        :param output_dir_str: Output directory as string
         :return: List of processing results
         """
+        # Create a fresh conversion engine in this process to avoid pickle issues
+        from .engine import ConversionEngine
+        conversion_engine = ConversionEngine()
+        
         results = []
+        output_dir = Path(output_dir_str)
         
         for file_path in batch:
             start_time = time.time()
             
             try:
-                # Check memory usage
-                if self._check_memory_usage():
-                    self.logger.warning(f"High memory usage, skipping {file_path}")
-                    results.append(ProcessingResult(
-                        file_path=file_path,
-                        success=False,
-                        error_message="Memory limit exceeded"
-                    ))
-                    continue
-                
                 # Process the file
-                output_path = self._get_output_path(file_path, output_dir)
-                self.conversion_engine.convert_document(str(file_path), str(output_path))
+                output_path = BatchProcessor._get_output_path_worker(file_path, output_dir)
+                conversion_engine.convert_document(str(file_path), str(output_path))
                 
                 # Calculate processing time and file size
                 processing_time = time.time() - start_time
@@ -321,38 +311,28 @@ class BatchProcessor:
         
         return results
     
-    def _get_output_path(self, input_file: Path, output_dir: Path) -> Path:
+    @staticmethod
+    def _get_output_path_worker(input_file: Path, output_dir: Path) -> Path:
         """
-        Generate output path for a file.
+        Generate output path for a file (worker version).
         
         :param input_file: Input file path
         :param output_dir: Output directory
         :return: Output file path
         """
-        if self.default_config["preserve_directory_structure"]:
-            # Preserve relative path structure
-            # Find the common ancestor and create relative path
-            try:
-                # For batch processing, we need to preserve the full structure
-                # from the input directory to the file
-                if hasattr(self, '_input_directory'):
-                    # Calculate relative to the input directory
-                    relative_path = input_file.relative_to(self._input_directory)
-                else:
-                    # Fallback: use the full path structure
-                    relative_path = input_file.relative_to(input_file.parents[-1])
-                output_path = output_dir / relative_path.with_suffix('.md')
-            except ValueError:
-                # If that fails, use the filename
-                output_path = output_dir / input_file.with_suffix('.md').name
-        else:
-            # Flatten structure
-            output_path = output_dir / input_file.with_suffix('.md').name
+        # Simple output path generation for worker processes
+        output_filename = input_file.stem + '.md'
+        return output_dir / output_filename
+    
+    def _create_batches(self, files: List[Path]) -> List[List[Path]]:
+        """
+        Create batches of files for processing.
         
-        # Create parent directories
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        return output_path
+        :param files: List of files
+        :return: List of file batches
+        """
+        batch_size = self.default_config["batch_size"]
+        return [files[i:i + batch_size] for i in range(0, len(files), batch_size)]
     
     def _check_memory_usage(self) -> bool:
         """

@@ -161,9 +161,11 @@ class PandocEngine:
         
         try:
             self.logger.info(f"Converting {input_path} from {input_format} to {output_format}")
+            self.logger.debug(f"Conversion options: {conversion_options}")
             
             if output_path:
                 # Convert to file
+                self.logger.debug(f"Converting to file: {output_path}")
                 result = pypandoc.convert_file(
                     str(input_path),
                     output_format,
@@ -171,15 +173,18 @@ class PandocEngine:
                     outputfile=str(output_path),
                     extra_args=self._build_extra_args(conversion_options)
                 )
+                self.logger.debug(f"File conversion result: {repr(result)}")
                 return result
             else:
                 # Convert to string
+                self.logger.debug("Converting to string")
                 result = pypandoc.convert_file(
                     str(input_path),
                     output_format,
                     format=input_format,
                     extra_args=self._build_extra_args(conversion_options)
                 )
+                self.logger.debug(f"String conversion result: {repr(result)}")
                 return result
                 
         except Exception as e:

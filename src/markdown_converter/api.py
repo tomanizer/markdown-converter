@@ -104,16 +104,47 @@ class MarkdownConverter:
         try:
             self.logger.info(f"Converting {input_path} to {output_path}")
             
+            # Check if format is supported before attempting conversion
+            if not self.validate_file(input_path):
+                return ConversionResult(
+                    input_file=input_path,
+                    output_file=output_path,
+                    success=False,
+                    error_message=f"Unsupported file format: {input_path.suffix}",
+                    file_size_mb=input_path.stat().st_size / (1024 * 1024)
+                )
+            
             result = self.engine.convert_document(
                 str(input_path),
                 str(output_path),
                 output_format=output_format
             )
             
+            # Verify the conversion actually produced content
+            # Note: pypandoc returns empty string when writing to file, but file is created
+            if output_path and output_path.exists():
+                # File was created, check if it has content
+                if output_path.stat().st_size == 0:
+                    return ConversionResult(
+                        input_file=input_path,
+                        output_file=output_path,
+                        success=False,
+                        error_message="Conversion produced empty file",
+                        file_size_mb=input_path.stat().st_size / (1024 * 1024)
+                    )
+            elif not result or len(result.strip()) == 0:
+                return ConversionResult(
+                    input_file=input_path,
+                    output_file=output_path,
+                    success=False,
+                    error_message="Conversion produced empty result",
+                    file_size_mb=input_path.stat().st_size / (1024 * 1024)
+                )
+            
             return ConversionResult(
                 input_file=input_path,
                 output_file=output_path,
-                success=True,  # If we get here, conversion succeeded
+                success=True,
                 processing_time=0.0,  # TODO: Add timing
                 file_size_mb=input_path.stat().st_size / (1024 * 1024)
             )
