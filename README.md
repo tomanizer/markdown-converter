@@ -9,7 +9,6 @@ A Python-based tool for converting various document formats to clean, readable m
 - **Information Preservation**: Extract ALL information, never lose content
 - **LLM Optimization**: Clean, readable markdown output
 - **Robust Error Handling**: Retry with fallback strategies
-- **Grid Computing Support**: Distributed processing capabilities
 - **Memory Management**: Efficient handling of large files (up to 70MB)
 
 ## Quick Start
@@ -18,7 +17,7 @@ A Python-based tool for converting various document formats to clean, readable m
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/markdown-converter.git
+git clone https://github.com/tomanizer/markdown-converter.git
 cd markdown-converter
 
 # Create virtual environment
@@ -37,13 +36,14 @@ pip install -r requirements.txt
 ### Basic Usage
 
 ```python
-from markdown_converter import convert_file, convert_directory
+from markdown_converter.core.converter import MainConverter
 
 # Convert a single file
-result = convert_file('document.docx', 'output.md')
+converter = MainConverter()
+result = converter.convert_file('document.docx', 'output.md')
 
 # Convert a directory of files
-results = convert_directory(
+results = converter.convert_directory(
     input_dir='documents/',
     output_dir='markdown/',
     parallel=True
@@ -57,10 +57,10 @@ results = convert_directory(
 markdown-converter convert document.docx -o output.md
 
 # Convert a directory
-markdown-converter convert documents/ -o markdown/ --parallel
+markdown-converter batch documents/ -o markdown/ --workers 8
 
 # Process with progress reporting
-markdown-converter convert documents/ -o markdown/ --progress --workers 8
+markdown-converter batch documents/ -o markdown/ --progress --workers 8
 ```
 
 ## Architecture
@@ -69,31 +69,40 @@ markdown-converter convert documents/ -o markdown/ --progress --workers 8
 markdown_converter/
 ├── src/markdown_converter/
 │   ├── core/              # Core conversion logic
+│   │   ├── converter.py   # Main conversion engine
+│   │   ├── file_converter.py # File handling utilities
+│   │   └── exceptions.py  # Custom exceptions
 │   ├── parsers/           # Format-specific parsers
-│   ├── processors/        # Content processors
-│   └── formatters/        # Output formatters
+│   │   ├── base.py        # Base parser interface
+│   │   ├── word_parser.py # Word document parser
+│   │   ├── pdf_parser.py  # PDF document parser
+│   │   ├── excel_parser.py # Excel spreadsheet parser
+│   │   ├── html_parser.py # HTML document parser
+│   │   └── pandoc_parser.py # Pandoc integration
+│   ├── utils/             # Utility functions
+│   │   └── document_generator.py # Document generation utilities
+│   └── cli.py            # Command line interface
 ├── tests/                 # Test suite
-├── docs/                  # Documentation
-└── examples/              # Sample files
+├── examples/              # Sample files and usage examples
+└── docs/                  # Documentation
 ```
 
 ## Supported Formats
 
 | Format | Primary Parser | Fallback Parser | Status |
 |--------|---------------|-----------------|--------|
-| Word (.docx) | mammoth | python-docx | ✅ |
-| PDF (.pdf) | pdfplumber | PyMuPDF | ✅ |
+| Word (.docx) | python-docx | pandoc | ✅ |
+| PDF (.pdf) | pdfplumber | pandoc | ✅ |
 | Excel (.xlsx) | openpyxl | pandas | ✅ |
-| HTML | beautifulsoup4 | - | ✅ |
+| HTML | beautifulsoup4 | pandoc | ✅ |
 | Email (.msg) | extract-msg | - | ✅ |
 
 ## Performance
 
 - **Parallel Processing**: Utilize all available CPU cores
 - **Memory Efficient**: Handle files up to 70MB
-- **Batch Processing**: Process 5GB+ document collections
+- **Batch Processing**: Process large document collections
 - **Progress Reporting**: Real-time progress tracking
-- **Grid Computing**: Distributed processing support
 
 ## Development
 
@@ -150,14 +159,20 @@ flake8 src/ tests/
 ### Environment Variables
 
 ```bash
-# Set log level
-export MARKDOWN_CONVERTER_LOG_LEVEL=INFO
-
 # Set number of workers
-export MARKDOWN_CONVERTER_WORKERS=8
+export MDC_MAX_WORKERS=8
 
-# Set cache directory
-export MARKDOWN_CONVERTER_CACHE_DIR=./cache
+# Set memory limit
+export MDC_MAX_MEMORY_MB=2048
+
+# Set batch size
+export MDC_BATCH_SIZE=100
+
+# Set output format
+export MDC_OUTPUT_FORMAT=markdown
+
+# Set structure preservation
+export MDC_PRESERVE_STRUCTURE=true
 ```
 
 ### YAML Configuration
@@ -185,24 +200,17 @@ output:
 
 ## API Reference
 
-### Core Functions
+### Core Classes
 
 ```python
-def convert_file(
-    input_path: str,
-    output_path: Optional[str] = None,
-    config: Optional[Dict] = None
-) -> str:
-    """Convert a single file to markdown."""
+class MainConverter:
+    """Main conversion engine for document processing."""
 
-def convert_directory(
-    input_dir: str,
-    output_dir: str,
-    parallel: bool = True,
-    workers: Optional[int] = None,
-    progress: bool = True
-) -> List[Tuple[str, str, str]]:
-    """Convert all files in a directory to markdown."""
+class FileConverter:
+    """Handles individual file conversion operations."""
+
+class BaseParser:
+    """Base class for all document parsers."""
 ```
 
 ### Parser Classes
@@ -216,14 +224,37 @@ class PDFParser:
 
 class ExcelParser:
     """Parse Excel spreadsheets to markdown."""
+
+class HTMLParser:
+    """Parse HTML documents to markdown."""
+
+class PandocParser:
+    """Universal parser using pandoc."""
 ```
+
+## CLI Commands
+
+The tool provides a comprehensive command-line interface:
+
+- `convert` - Convert a single file
+- `batch` - Convert a directory of files
+- `info` - Show system information
+- `formats` - List supported formats
+- `health` - Health check
+- `analyze` - Analyze file content
+- `file-info` - Get file information
+- `validate` - Validate conversion
+- `can-convert` - Check if file can be converted
+- `list-parsers` - List available parsers
+- `test` - Test conversion on sample files
+- `clean` - Clean temporary files
 
 ## Error Handling
 
 The tool implements robust error handling with multiple fallback strategies:
 
-1. **Primary Method**: Try pandoc conversion
-2. **Format-Specific**: Try format-specific parsers
+1. **Primary Method**: Try format-specific parser
+2. **Pandoc Fallback**: Try pandoc conversion
 3. **Generic Extraction**: Extract all text content
 4. **Skip and Continue**: Skip failed files, continue processing
 
