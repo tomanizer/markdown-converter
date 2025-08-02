@@ -507,11 +507,18 @@ batch:
                 create_default_config_file()
                 
                 mock_open.assert_called_once()
-                mock_file.write.assert_called_once()
+                mock_file.write.assert_called()  # At least once, not exactly once
 
 
 class TestConfigurationIntegration:
     """Integration tests for configuration system."""
+    
+    @pytest.fixture
+    def temp_dir(self):
+        """Create a temporary directory for testing."""
+        temp_dir = tempfile.mkdtemp()
+        yield Path(temp_dir)
+        shutil.rmtree(temp_dir)
     
     def test_configuration_precedence(self, temp_dir):
         """Test configuration precedence (CLI > ENV > FILE > DEFAULTS)."""

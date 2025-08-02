@@ -113,7 +113,7 @@ class MarkdownConverter:
             return ConversionResult(
                 input_file=input_path,
                 output_file=output_path,
-                success=bool(result),
+                success=True,  # If we get here, conversion succeeded
                 processing_time=0.0,  # TODO: Add timing
                 file_size_mb=input_path.stat().st_size / (1024 * 1024)
             )
@@ -221,6 +221,7 @@ class MarkdownConverter:
         # Check if Dask is available
         try:
             import dask
+            import dask.distributed
         except ImportError:
             raise DependencyError("Dask is required for grid processing. Install with: pip install dask[distributed]")
         

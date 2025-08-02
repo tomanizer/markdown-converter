@@ -68,7 +68,7 @@ class TestMarkdownConverter:
         output_file = temp_dir / "output.md"
         
         with patch('src.markdown_converter.core.engine.ConversionEngine') as mock_engine:
-            mock_engine.return_value.convert_document.return_value = True
+            mock_engine.return_value.convert_document.return_value = "Converted content"
             
             result = converter.convert_file(
                 input_file=sample_file,
@@ -86,7 +86,7 @@ class TestMarkdownConverter:
     def test_convert_file_auto_output(self, converter, sample_file):
         """Test file conversion with auto-generated output path."""
         with patch('src.markdown_converter.core.engine.ConversionEngine') as mock_engine:
-            mock_engine.return_value.convert_document.return_value = True
+            mock_engine.return_value.convert_document.return_value = "Converted content"
             
             result = converter.convert_file(
                 input_file=sample_file,
@@ -100,8 +100,8 @@ class TestMarkdownConverter:
     
     def test_convert_file_error(self, converter, sample_file):
         """Test file conversion with error."""
-        with patch('src.markdown_converter.core.engine.ConversionEngine') as mock_engine:
-            mock_engine.return_value.convert_document.side_effect = ConversionError("Test error")
+        with patch.object(converter.engine, 'convert_document') as mock_convert:
+            mock_convert.side_effect = ConversionError("Test error")
             
             result = converter.convert_file(input_file=sample_file)
             
@@ -120,15 +120,18 @@ class TestMarkdownConverter:
         """Test successful directory conversion."""
         output_dir = temp_dir / "output"
         
-        with patch('src.markdown_converter.core.batch_processor.BatchProcessor') as mock_processor:
-            mock_processor.return_value.process_directory.return_value = MagicMock(
-                total_files=3,
-                processed_files=2,
-                failed_files=1,
-                skipped_files=0,
-                start_time=0.0,
-                end_time=1.0
-            )
+        with patch('src.markdown_converter.api.BatchProcessor') as mock_processor_class:
+            mock_processor = MagicMock()
+            mock_processor_class.return_value = mock_processor
+            
+            mock_stats = MagicMock()
+            mock_stats.total_files = 3
+            mock_stats.processed_files = 2
+            mock_stats.failed_files = 1
+            mock_stats.skipped_files = 0
+            mock_stats.start_time = 0.0
+            mock_stats.end_time = 1.0
+            mock_processor.process_directory.return_value = mock_stats
             
             result = converter.convert_directory(
                 input_dir=sample_dir,
@@ -147,8 +150,10 @@ class TestMarkdownConverter:
     
     def test_convert_directory_error(self, converter, sample_dir):
         """Test directory conversion with error."""
-        with patch('src.markdown_converter.core.batch_processor.BatchProcessor') as mock_processor:
-            mock_processor.return_value.process_directory.side_effect = BatchProcessingError("Test error")
+        with patch('src.markdown_converter.api.BatchProcessor') as mock_processor_class:
+            mock_processor = MagicMock()
+            mock_processor_class.return_value = mock_processor
+            mock_processor.process_directory.side_effect = BatchProcessingError("Test error")
             
             with pytest.raises(BatchProcessingError):
                 converter.convert_directory(input_dir=sample_dir)
@@ -164,46 +169,50 @@ class TestMarkdownConverter:
         """Test successful grid conversion."""
         output_dir = temp_dir / "output"
         
-        with patch('dask') as mock_dask:
-            with patch('src.markdown_converter.core.grid_processor.GridProcessor') as mock_processor:
-                mock_processor.return_value.start_cluster.return_value = MagicMock(
-                    scheduler_address='tcp://localhost:8786',
-                    dashboard_address='http://localhost:8787',
-                    n_workers=4,
-                    n_threads=8,
-                    memory_limit='2GB',
-                    status='running'
-                )
-                mock_processor.return_value.submit_job.return_value = MagicMock(
-                    job_id='test-job-123',
-                    status='submitted',
-                    submitted_time=0.0,
-                    total_tasks=10,
-                    completed_tasks=0,
-                    failed_tasks=0
-                )
-                mock_processor.return_value.get_job_status.return_value = MagicMock(
-                    job_id='test-job-123',
-                    status='completed',
-                    submitted_time=0.0,
-                    completed_time=1.0,
-                    total_tasks=10,
-                    completed_tasks=8,
-                    failed_tasks=2
-                )
-                
-                result = converter.convert_with_grid(
-                    input_dir=sample_dir,
-                    output_dir=output_dir,
-                    cluster_type='local',
-                    n_workers=4,
-                    memory_limit='2GB'
-                )
-                
-                assert isinstance(result, GridResult)
-                assert result.job_info.job_id == 'test-job-123'
-                assert result.job_info.status == 'completed'
-                assert result.cluster_info is not None
+        with patch('src.markdown_converter.api.GridProcessor') as mock_processor_class:
+            mock_processor = MagicMock()
+            mock_processor_class.return_value = mock_processor
+            
+            mock_cluster_info = MagicMock()
+            mock_cluster_info.scheduler_address = 'tcp://localhost:8786'
+            mock_cluster_info.dashboard_address = 'http://localhost:8787'
+            mock_cluster_info.n_workers = 4
+            mock_cluster_info.n_threads = 8
+            mock_cluster_info.memory_limit = '2GB'
+            mock_cluster_info.status = 'running'
+            mock_processor.start_cluster.return_value = mock_cluster_info
+            
+            mock_job_info = MagicMock()
+            mock_job_info.job_id = 'test-job-123'
+            mock_job_info.status = 'submitted'
+            mock_job_info.submitted_time = 0.0
+            mock_job_info.total_tasks = 10
+            mock_job_info.completed_tasks = 0
+            mock_job_info.failed_tasks = 0
+            mock_processor.submit_job.return_value = mock_job_info
+            
+            mock_completed_job = MagicMock()
+            mock_completed_job.job_id = 'test-job-123'
+            mock_completed_job.status = 'completed'
+            mock_completed_job.submitted_time = 0.0
+            mock_completed_job.completed_time = 1.0
+            mock_completed_job.total_tasks = 10
+            mock_completed_job.completed_tasks = 8
+            mock_completed_job.failed_tasks = 2
+            mock_processor.get_job_status.return_value = mock_completed_job
+            
+            result = converter.convert_with_grid(
+                input_dir=sample_dir,
+                output_dir=output_dir,
+                cluster_type='local',
+                n_workers=4,
+                memory_limit='2GB'
+            )
+            
+            assert isinstance(result, GridResult)
+            assert result.job_info.job_id == 'test-job-123'
+            assert result.job_info.status == 'completed'
+            assert result.cluster_info is not None
     
     def test_convert_with_grid_no_dask(self, converter, sample_dir):
         """Test grid conversion when Dask is not available."""
@@ -215,12 +224,13 @@ class TestMarkdownConverter:
     
     def test_convert_with_grid_error(self, converter, sample_dir):
         """Test grid conversion with error."""
-        with patch('dask') as mock_dask:
-            with patch('src.markdown_converter.core.grid_processor.GridProcessor') as mock_processor:
-                mock_processor.return_value.start_cluster.side_effect = GridProcessingError("Test error")
-                
-                with pytest.raises(GridProcessingError):
-                    converter.convert_with_grid(input_dir=sample_dir)
+        with patch('src.markdown_converter.api.GridProcessor') as mock_processor_class:
+            mock_processor = MagicMock()
+            mock_processor_class.return_value = mock_processor
+            mock_processor.start_cluster.side_effect = GridProcessingError("Test error")
+            
+            with pytest.raises(GridProcessingError):
+                converter.convert_with_grid(input_dir=sample_dir)
     
     def test_get_supported_formats(self, converter):
         """Test getting supported formats."""
@@ -318,56 +328,59 @@ class TestAPIFunctions:
         """Test convert_directory convenience function."""
         output_dir = temp_dir / "output"
         
-        with patch('src.markdown_converter.core.batch_processor.BatchProcessor') as mock_processor:
-            mock_processor.return_value.process_directory.return_value = MagicMock(
-                total_files=3,
-                processed_files=2,
-                failed_files=1,
-                skipped_files=0,
-                start_time=0.0,
-                end_time=1.0
-            )
+        with patch('src.markdown_converter.api.BatchProcessor') as mock_processor_class:
+            mock_processor = MagicMock()
+            mock_processor_class.return_value = mock_processor
+            
+            mock_stats = MagicMock()
+            mock_stats.total_files = 3
+            mock_stats.processed_files = 2
+            mock_stats.failed_files = 1
+            mock_stats.skipped_files = 0
+            mock_processor.process_directory.return_value = mock_stats
             
             result = convert_directory(
                 input_dir=sample_dir,
                 output_dir=output_dir,
                 max_workers=4,
                 batch_size=10,
-                max_memory_mb=1024,
-                continue_on_error=True
+                max_memory_mb=1024
             )
             
             assert isinstance(result, BatchResult)
             assert result.stats.total_files == 3
             assert result.stats.processed_files == 2
+            assert result.stats.failed_files == 1
     
     def test_convert_with_grid_function(self, sample_dir, temp_dir):
         """Test convert_with_grid convenience function."""
         output_dir = temp_dir / "output"
         
-        with patch('src.markdown_converter.core.grid_processor.DASK_AVAILABLE', True):
-            with patch('src.markdown_converter.core.grid_processor.GridProcessor') as mock_processor:
-                mock_processor.return_value.start_cluster.return_value = MagicMock()
-                mock_processor.return_value.submit_job.return_value = MagicMock(
-                    job_id='test-job-123',
-                    status='submitted'
-                )
-                mock_processor.return_value.get_job_status.return_value = MagicMock(
-                    job_id='test-job-123',
-                    status='completed'
-                )
-                
-                result = convert_with_grid(
-                    input_dir=sample_dir,
-                    output_dir=output_dir,
-                    cluster_type='local',
-                    n_workers=4,
-                    memory_limit='2GB'
-                )
-                
-                assert isinstance(result, GridResult)
-                assert result.job_info.job_id == 'test-job-123'
-                assert result.job_info.status == 'completed'
+        with patch('src.markdown_converter.api.GridProcessor') as mock_processor_class:
+            mock_processor = MagicMock()
+            mock_processor_class.return_value = mock_processor
+            
+            mock_processor.start_cluster.return_value = MagicMock()
+            mock_processor.submit_job.return_value = MagicMock(
+                job_id='test-job-123',
+                status='submitted'
+            )
+            mock_processor.get_job_status.return_value = MagicMock(
+                job_id='test-job-123',
+                status='completed'
+            )
+            
+            result = convert_with_grid(
+                input_dir=sample_dir,
+                output_dir=output_dir,
+                cluster_type='local',
+                n_workers=4,
+                memory_limit='2GB'
+            )
+            
+            assert isinstance(result, GridResult)
+            assert result.job_info.job_id == 'test-job-123'
+            assert result.job_info.status == 'completed'
 
 
 class TestConversionResult:
