@@ -281,6 +281,173 @@ class PDFParser(BaseParser):
             content=content, metadata=metadata, format="markdown", messages=[]
         )
 
+    def _extract_images_from_page(self, page, page_num: int) -> List[Dict]:
+        """
+        Extract images from a page using pdfplumber.
+
+        :param page: pdfplumber page object
+        :param page_num: Page number
+        :return: List of image metadata
+        """
+        images = []
+        
+        try:
+            # pdfplumber doesn't directly support image extraction
+            # This is a placeholder for future implementation
+            pass
+        except Exception as e:
+            self.logger.warning(f"Image extraction failed: {e}")
+            
+        return images
+
+    def _extract_tables_pymupdf(self, page, page_num: int) -> List[Dict]:
+        """
+        Extract tables using PyMuPDF.
+
+        :param page: PyMuPDF page object
+        :param page_num: Page number
+        :return: List of table dictionaries
+        """
+        tables = []
+        
+        try:
+            # PyMuPDF doesn't have built-in table extraction
+            # We'll use a simple approach based on text positioning
+            text_dict = page.get_text("dict")
+            
+            if "blocks" in text_dict:
+                # Group text by vertical position to identify potential tables
+                text_blocks = []
+                for block in text_dict["blocks"]:
+                    if "lines" in block:
+                        for line in block["lines"]:
+                            for span in line["spans"]:
+                                text_blocks.append({
+                                    "text": span["text"],
+                                    "bbox": span["bbox"],
+                                    "y": span["bbox"][1]
+                                })
+                
+                # Simple table detection based on alignment
+                if text_blocks:
+                    tables = self._detect_tables_from_text_blocks(text_blocks, page_num)
+                    
+        except Exception as e:
+            self.logger.warning(f"PyMuPDF table extraction failed: {e}")
+            
+        return tables
+
+    def _extract_images_pymupdf(self, page, page_num: int) -> List[Dict]:
+        """
+        Extract images from a page using PyMuPDF.
+
+        :param page: PyMuPDF page object
+        :param page_num: Page number
+        :return: List of image metadata
+        """
+        images = []
+        
+        try:
+            import fitz  # PyMuPDF
+            image_list = page.get_images()
+            
+            for img_index, img in enumerate(image_list):
+                try:
+                    xref = img[0]
+                    pix = fitz.Pixmap(page.parent, xref)
+                    
+                    if pix.n - pix.alpha < 4:  # GRAY or RGB
+                        img_data = {
+                            "page": page_num,
+                            "image_index": img_index,
+                            "width": pix.width,
+                            "height": pix.height,
+                            "colorspace": pix.colorspace.name if pix.colorspace else "unknown",
+                            "size_bytes": len(pix.tobytes()),
+                        }
+                        images.append(img_data)
+                    
+                    pix = None  # Free memory
+                    
+                except Exception as e:
+                    self.logger.warning(f"Failed to extract image {img_index}: {e}")
+                    
+        except Exception as e:
+            self.logger.warning(f"PyMuPDF image extraction failed: {e}")
+            
+        return images
+
+    def _detect_tables_from_text_blocks(self, text_blocks: List[Dict], page_num: int) -> List[Dict]:
+        """
+        Detect tables from text blocks based on positioning.
+
+        :param text_blocks: List of text blocks with positioning
+        :param page_num: Page number
+        :return: List of detected tables
+        """
+        tables = []
+        
+        try:
+            # Group text by similar Y positions (rows)
+            y_tolerance = 5
+            rows = {}
+            
+            for block in text_blocks:
+                y_key = round(block["y"] / y_tolerance) * y_tolerance
+                if y_key not in rows:
+                    rows[y_key] = []
+                rows[y_key].append(block)
+            
+            # Sort rows by Y position
+            sorted_rows = sorted(rows.items(), key=lambda x: x[0])
+            
+            # Convert to table format
+            if len(sorted_rows) > 1:  # At least 2 rows for a table
+                table_data = []
+                for _, row_blocks in sorted_rows:
+                    # Sort blocks in row by X position
+                    row_blocks.sort(key=lambda b: b["bbox"][0])
+                    row = [block["text"] for block in row_blocks]
+                    table_data.append(row)
+                
+                if table_data:
+                    table_markdown = self._convert_table_to_markdown(table_data)
+                    tables.append({
+                        "page": page_num,
+                        "table_num": len(tables) + 1,
+                        "content": table_markdown,
+                        "detection_method": "text_positioning"
+                    })
+                    
+        except Exception as e:
+            self.logger.warning(f"Table detection failed: {e}")
+            
+        return tables
+
+    def _extract_pdf_metadata(self, metadata: Dict) -> Dict:
+        """
+        Extract and clean PDF metadata.
+
+        :param metadata: Raw PDF metadata
+        :return: Cleaned metadata dictionary
+        """
+        cleaned_metadata = {}
+        
+        # Common metadata fields
+        metadata_fields = [
+            "title", "author", "subject", "creator", "producer",
+            "creationDate", "modDate", "keywords"
+        ]
+        
+        for field in metadata_fields:
+            if field in metadata and metadata[field]:
+                # Clean the value
+                value = str(metadata[field]).strip()
+                if value and value != "null":
+                    cleaned_metadata[field] = value
+        
+        return cleaned_metadata
+
     def _convert_table_to_markdown(self, table: List[List[str]]) -> str:
         """
         Convert a table to markdown format.
