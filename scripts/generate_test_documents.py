@@ -147,7 +147,8 @@ def main() -> None:
         {
             "name": "technical_spec.txt",
             "type": "text",
-            "content": """
+            "content": {
+                "content": """
             TECHNICAL SPECIFICATION
             =======================
             
@@ -178,6 +179,7 @@ def main() -> None:
             The converter uses a modular architecture with format-specific parsers
             and a unified output formatter.
             """
+            }
         }
     ]
     
