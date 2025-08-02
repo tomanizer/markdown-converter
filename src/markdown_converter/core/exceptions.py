@@ -225,3 +225,18 @@ class ConversionError(MarkdownConverterError):
             "error_type": "conversion_error"
         }
         super().__init__(message, details) 
+
+
+class BatchProcessingError(MarkdownConverterError):
+    """Raised when batch processing fails."""
+    pass
+
+
+class GridProcessingError(MarkdownConverterError):
+    """Raised when grid/distributed processing fails."""
+    pass
+
+
+class DependencyError(MarkdownConverterError):
+    """Raised when a required dependency is missing."""
+    pass 
