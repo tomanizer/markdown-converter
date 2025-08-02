@@ -7,13 +7,11 @@ that can be processed by our parsers. Handles cases like .xlsb -> .xlsx, .doc ->
 
 import logging
 import subprocess
-import tempfile
-import os
+import platform
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Union
-import shutil
+from typing import Optional, Union
 
-from .exceptions import ConversionError, UnsupportedFormatError
+from .exceptions import ConversionError
 
 
 class FileConverter:
@@ -24,45 +22,18 @@ class FileConverter:
     XML-based equivalents (.xlsx, .docx, .pptx) that can be read by our parsers.
     """
     
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
-        """
-        Initialize the file converter.
-        
-        :param config: Configuration dictionary
-        """
-        self.config = config or {}
+    def __init__(self) -> None:
+        """Initialize the file converter."""
         self.logger = logging.getLogger("FileConverter")
-        self._setup_default_config()
-        self._validate_dependencies()
+        self._check_dependencies()
     
-    def _setup_default_config(self) -> None:
-        """Setup default configuration for file conversion."""
-        self.default_config = {
-            # Conversion settings
-            "use_libreoffice": True,
-            "use_pandoc": True,
-            "use_python_converters": True,
-            
-            # LibreOffice settings
-            "libreoffice_path": None,  # Auto-detect
-            "libreoffice_timeout": 60,  # seconds
-            "libreoffice_headless": True,
-            
-            # Pandoc settings
-            "pandoc_timeout": 30,  # seconds
-            
-            # Output settings
-            "preserve_original": True,
-            "cleanup_temp_files": True,
-            "output_dir": None,  # Use temp directory
-        }
+    def _check_dependencies(self) -> None:
+        """Check if required dependencies are available."""
+        # Check Microsoft Office (highest priority)
+        self.ms_office_available = self._check_ms_office()
+        if self.ms_office_available:
+            self.logger.info("Microsoft Office available for file conversion")
         
-        # Merge with user config
-        if self.config:
-            self.default_config.update(self.config)
-    
-    def _validate_dependencies(self) -> None:
-        """Validate that required dependencies are available."""
         # Check LibreOffice
         self.libreoffice_available = self._check_libreoffice()
         if not self.libreoffice_available:
@@ -72,19 +43,55 @@ class FileConverter:
         self.pandoc_available = self._check_pandoc()
         if not self.pandoc_available:
             self.logger.warning("Pandoc not available for file conversion")
+    
+    def _check_ms_office(self) -> bool:
+        """Check if Microsoft Office is available."""
+        system = platform.system()
         
-        if not self.libreoffice_available and not self.pandoc_available:
-            self.logger.warning("No file conversion tools available")
+        if system == "Windows":
+            return self._check_ms_office_windows()
+        elif system == "Darwin":  # macOS
+            return self._check_ms_office_macos()
+        else:  # Linux
+            return self._check_ms_office_linux()
+    
+    def _check_ms_office_windows(self) -> bool:
+        """Check Microsoft Office availability on Windows."""
+        try:
+            import win32com.client
+            # Try to create Excel application
+            excel = win32com.client.Dispatch("Excel.Application")
+            excel.Quit()
+            return True
+        except Exception:
+            return False
+    
+    def _check_ms_office_macos(self) -> bool:
+        """Check Microsoft Office availability on macOS."""
+        try:
+            # Check if Microsoft Office apps are installed
+            office_apps = [
+                "/Applications/Microsoft Excel.app",
+                "/Applications/Microsoft Word.app",
+                "/Applications/Microsoft PowerPoint.app"
+            ]
+            
+            for app in office_apps:
+                if Path(app).exists():
+                    return True
+            
+            return False
+        except Exception:
+            return False
+    
+    def _check_ms_office_linux(self) -> bool:
+        """Check Microsoft Office availability on Linux."""
+        # Microsoft Office is not typically available on Linux
+        return False
     
     def _check_libreoffice(self) -> bool:
         """Check if LibreOffice is available."""
         try:
-            # Try to find LibreOffice
-            if self.default_config["libreoffice_path"]:
-                path = Path(self.default_config["libreoffice_path"])
-                if path.exists() and path.is_file():
-                    return True
-            
             # Try common locations
             common_paths = [
                 "/usr/bin/libreoffice",
@@ -95,44 +102,25 @@ class FileConverter:
             
             for path in common_paths:
                 if Path(path).exists():
-                    self.default_config["libreoffice_path"] = path
                     return True
             
             # Try to find in PATH
-            result = subprocess.run(
-                ["which", "libreoffice"], 
-                capture_output=True, 
-                text=True
-            )
+            result = subprocess.run(["which", "libreoffice"], capture_output=True, text=True)
             if result.returncode == 0:
-                self.default_config["libreoffice_path"] = result.stdout.strip()
                 return True
             
-            result = subprocess.run(
-                ["which", "soffice"], 
-                capture_output=True, 
-                text=True
-            )
-            if result.returncode == 0:
-                self.default_config["libreoffice_path"] = result.stdout.strip()
-                return True
+            result = subprocess.run(["which", "soffice"], capture_output=True, text=True)
+            return result.returncode == 0
             
-            return False
-        except Exception as e:
-            self.logger.warning(f"Error checking LibreOffice: {e}")
+        except Exception:
             return False
     
     def _check_pandoc(self) -> bool:
         """Check if Pandoc is available."""
         try:
-            result = subprocess.run(
-                ["pandoc", "--version"], 
-                capture_output=True, 
-                text=True
-            )
+            result = subprocess.run(["pandoc", "--version"], capture_output=True, text=True)
             return result.returncode == 0
-        except Exception as e:
-            self.logger.warning(f"Error checking Pandoc: {e}")
+        except Exception:
             return False
     
     def needs_conversion(self, file_path: Union[str, Path]) -> bool:
@@ -149,12 +137,10 @@ class FileConverter:
         binary_formats = {
             '.xlsb',  # Excel Binary
             '.doc',   # Word Binary
-            '.ppt',   # PowerPoint Binary
             '.xls',   # Excel 97-2003
             '.rtf',   # Rich Text Format
             '.odt',   # OpenDocument Text
             '.ods',   # OpenDocument Spreadsheet
-            '.odp',   # OpenDocument Presentation
         }
         
         return extension in binary_formats
@@ -174,11 +160,9 @@ class FileConverter:
             '.xlsb': '.xlsx',  # Excel Binary -> Excel XML
             '.xls': '.xlsx',    # Excel 97-2003 -> Excel XML
             '.doc': '.docx',    # Word Binary -> Word XML
-            '.ppt': '.pptx',    # PowerPoint Binary -> PowerPoint XML
             '.rtf': '.docx',    # Rich Text -> Word XML
             '.odt': '.docx',    # OpenDocument Text -> Word XML
             '.ods': '.xlsx',    # OpenDocument Spreadsheet -> Excel XML
-            '.odp': '.pptx',    # OpenDocument Presentation -> PowerPoint XML
         }
         
         return format_mapping.get(extension, extension)
@@ -207,14 +191,21 @@ class FileConverter:
         output_path = Path(output_path)
         
         try:
-            # Try LibreOffice first (most comprehensive)
+            # Try Microsoft Office first (best quality)
+            if self.ms_office_available:
+                try:
+                    return self._convert_with_ms_office(file_path, output_path)
+                except Exception as e:
+                    self.logger.warning(f"Microsoft Office conversion failed: {e}")
+            
+            # Try LibreOffice as fallback
             if self.libreoffice_available:
                 try:
                     return self._convert_with_libreoffice(file_path, output_path)
                 except Exception as e:
                     self.logger.warning(f"LibreOffice conversion failed: {e}")
             
-            # Try Pandoc as fallback
+            # Try Pandoc as last resort
             if self.pandoc_available:
                 try:
                     return self._convert_with_pandoc(file_path, output_path)
@@ -224,8 +215,135 @@ class FileConverter:
             raise ConversionError(f"No conversion method available for {file_path}")
             
         except Exception as e:
-            self.logger.error(f"File conversion failed for {file_path}: {e}")
             raise ConversionError(f"Failed to convert {file_path}: {e}")
+    
+    def _convert_with_ms_office(self, input_path: Path, output_path: Path) -> Path:
+        """
+        Convert file using Microsoft Office.
+        
+        :param input_path: Path to input file
+        :param output_path: Path to output file
+        :return: Path to converted file
+        """
+        system = platform.system()
+        
+        if system == "Windows":
+            return self._convert_with_ms_office_windows(input_path, output_path)
+        elif system == "Darwin":  # macOS
+            return self._convert_with_ms_office_macos(input_path, output_path)
+        else:
+            raise ConversionError("Microsoft Office conversion not supported on this platform")
+    
+    def _convert_with_ms_office_windows(self, input_path: Path, output_path: Path) -> Path:
+        """Convert file using Microsoft Office on Windows via COM automation."""
+        try:
+            import win32com.client
+            
+            file_extension = input_path.suffix.lower()
+            
+            if file_extension in ['.xls', '.xlsb']:
+                # Use Excel
+                excel = win32com.client.Dispatch("Excel.Application")
+                excel.Visible = False
+                excel.DisplayAlerts = False
+                
+                try:
+                    # Open the workbook
+                    workbook = excel.Workbooks.Open(str(input_path.absolute()))
+                    
+                    # Save as new format
+                    if output_path.suffix.lower() == '.xlsx':
+                        workbook.SaveAs(str(output_path.absolute()), FileFormat=51)  # xlOpenXMLWorkbook
+                    else:
+                        workbook.SaveAs(str(output_path.absolute()))
+                    
+                    workbook.Close()
+                    
+                finally:
+                    excel.Quit()
+                    
+            elif file_extension in ['.doc', '.rtf']:
+                # Use Word
+                word = win32com.client.Dispatch("Word.Application")
+                word.Visible = False
+                word.DisplayAlerts = False
+                
+                try:
+                    # Open the document
+                    doc = word.Documents.Open(str(input_path.absolute()))
+                    
+                    # Save as new format
+                    if output_path.suffix.lower() == '.docx':
+                        doc.SaveAs2(str(output_path.absolute()), FileFormat=16)  # wdFormatDocumentDefault
+                    else:
+                        doc.SaveAs(str(output_path.absolute()))
+                    
+                    doc.Close()
+                    
+                finally:
+                    word.Quit()
+            
+            else:
+                raise ConversionError(f"Unsupported file format for MS Office conversion: {file_extension}")
+            
+            if not output_path.exists():
+                raise ConversionError(f"Microsoft Office did not create output file: {output_path}")
+            
+            self.logger.info(f"Successfully converted {input_path} to {output_path} using Microsoft Office")
+            return output_path
+            
+        except Exception as e:
+            raise ConversionError(f"Microsoft Office conversion failed: {e}")
+    
+    def _convert_with_ms_office_macos(self, input_path: Path, output_path: Path) -> Path:
+        """Convert file using Microsoft Office on macOS via AppleScript."""
+        try:
+            file_extension = input_path.suffix.lower()
+            
+            if file_extension in ['.xls', '.xlsb']:
+                # Use Excel via AppleScript
+                script = f'''
+                tell application "Microsoft Excel"
+                    open POSIX file "{input_path.absolute()}"
+                    set activeWorkbook to active workbook
+                    save activeWorkbook as active workbook in POSIX file "{output_path.absolute()}"
+                    close activeWorkbook
+                end tell
+                '''
+                
+            elif file_extension in ['.doc', '.rtf']:
+                # Use Word via AppleScript
+                script = f'''
+                tell application "Microsoft Word"
+                    open POSIX file "{input_path.absolute()}"
+                    set activeDocument to active document
+                    save activeDocument as active document in POSIX file "{output_path.absolute()}"
+                    close activeDocument
+                end tell
+                '''
+            
+            else:
+                raise ConversionError(f"Unsupported file format for MS Office conversion: {file_extension}")
+            
+            # Execute AppleScript
+            result = subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            if result.returncode != 0:
+                raise ConversionError(f"AppleScript conversion failed: {result.stderr}")
+            
+            if not output_path.exists():
+                raise ConversionError(f"Microsoft Office did not create output file: {output_path}")
+            
+            self.logger.info(f"Successfully converted {input_path} to {output_path} using Microsoft Office")
+            return output_path
+            
+        except Exception as e:
+            raise ConversionError(f"Microsoft Office conversion failed: {e}")
     
     def _convert_with_libreoffice(self, input_path: Path, output_path: Path) -> Path:
         """
@@ -239,23 +357,13 @@ class FileConverter:
         
         # Prepare command
         cmd = [
-            self.default_config["libreoffice_path"],
-            "--headless" if self.default_config["libreoffice_headless"] else "",
-            "--convert-to", self._get_libreoffice_format(output_path),
-            "--outdir", str(output_path.parent),
-            str(input_path)
+            "libreoffice", "--headless", "--convert-to", 
+            self._get_libreoffice_format(output_path),
+            "--outdir", str(output_path.parent), str(input_path)
         ]
         
-        # Remove empty strings
-        cmd = [arg for arg in cmd if arg]
-        
         # Run conversion
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=self.default_config["libreoffice_timeout"]
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         
         if result.returncode != 0:
             raise ConversionError(f"LibreOffice conversion failed: {result.stderr}")
@@ -278,19 +386,10 @@ class FileConverter:
         self.logger.debug(f"Using Pandoc to convert {input_path}")
         
         # Prepare command
-        cmd = [
-            "pandoc",
-            str(input_path),
-            "-o", str(output_path)
-        ]
+        cmd = ["pandoc", str(input_path), "-o", str(output_path)]
         
         # Run conversion
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=self.default_config["pandoc_timeout"]
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         
         if result.returncode != 0:
             raise ConversionError(f"Pandoc conversion failed: {result.stderr}")
@@ -314,73 +413,6 @@ class FileConverter:
         format_mapping = {
             '.xlsx': 'Calc MS Excel 2007 XML',
             '.docx': 'MS Word 2007 XML',
-            '.pptx': 'Impress MS PowerPoint 2007 XML',
-            '.pdf': 'writer_pdf_Export',
-            '.html': 'HTML (StarWriter)',
-            '.txt': 'Text',
         }
         
-        return format_mapping.get(extension, 'Calc MS Excel 2007 XML')
-    
-    def convert_directory(self, input_dir: Union[str, Path], output_dir: Optional[Union[str, Path]] = None) -> List[Path]:
-        """
-        Convert all files in a directory that need conversion.
-        
-        :param input_dir: Input directory path
-        :param output_dir: Output directory path (optional)
-        :return: List of converted file paths
-        """
-        input_dir = Path(input_dir)
-        
-        if output_dir is None:
-            output_dir = input_dir / "converted"
-        
-        output_dir = Path(output_dir)
-        output_dir.mkdir(exist_ok=True)
-        
-        converted_files = []
-        
-        for file_path in input_dir.iterdir():
-            if file_path.is_file() and self.needs_conversion(file_path):
-                try:
-                    output_path = output_dir / file_path.name
-                    converted_file = self.convert_file(file_path, output_path)
-                    converted_files.append(converted_file)
-                except Exception as e:
-                    self.logger.error(f"Failed to convert {file_path}: {e}")
-        
-        return converted_files
-    
-    def get_supported_conversions(self) -> Dict[str, str]:
-        """
-        Get mapping of supported binary formats to target formats.
-        
-        :return: Dictionary mapping source formats to target formats
-        """
-        return {
-            '.xlsb': '.xlsx',  # Excel Binary -> Excel XML
-            '.xls': '.xlsx',    # Excel 97-2003 -> Excel XML
-            '.doc': '.docx',    # Word Binary -> Word XML
-            '.ppt': '.pptx',    # PowerPoint Binary -> PowerPoint XML
-            '.rtf': '.docx',    # Rich Text -> Word XML
-            '.odt': '.docx',    # OpenDocument Text -> Word XML
-            '.ods': '.xlsx',    # OpenDocument Spreadsheet -> Excel XML
-            '.odp': '.pptx',    # OpenDocument Presentation -> PowerPoint XML
-        }
-    
-    def get_converter_info(self) -> Dict[str, Any]:
-        """
-        Get information about the file converter.
-        
-        :return: Dictionary with converter information
-        """
-        return {
-            "name": "FileConverter",
-            "description": "Utility for converting binary file formats to readable formats",
-            "supported_conversions": self.get_supported_conversions(),
-            "dependencies": {
-                "libreoffice": self.libreoffice_available,
-                "pandoc": self.pandoc_available
-            },
-            "config": self.default_config
-        } 
+        return format_mapping.get(extension, 'Calc MS Excel 2007 XML') 

@@ -17,7 +17,6 @@ import os
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.markdown_converter.cli import cli
-from src.markdown_converter.config import ConfigManager
 from src.markdown_converter.core.exceptions import ConversionError
 
 
