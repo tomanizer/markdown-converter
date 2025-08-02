@@ -6,12 +6,11 @@ filesystem operations, and utility functions.
 """
 
 from .exceptions import (
-    ParserError,
-    UnsupportedFormatError,
     ConfigurationError,
     ConversionError,
+    ParserError,
+    UnsupportedFormatError,
 )
-
 from .file_converter import FileConverter
 
 __all__ = [

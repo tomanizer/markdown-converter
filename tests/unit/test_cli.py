@@ -5,19 +5,20 @@ Tests the command-line interface functionality including argument parsing,
 command execution, and error handling.
 """
 
-import pytest
-import tempfile
-import shutil
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-import sys
 import os
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Add the project root to the path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.markdown_converter.cli import cli
-from src.markdown_converter.core.exceptions import ConversionError
+from markdown_converter.cli import cli
+from markdown_converter.core.exceptions import ConversionError
 
 
 class TestCLI:
@@ -66,7 +67,7 @@ class TestCLI:
             'markdown-converter', 'convert', 
             str(sample_file), str(output_file)
         ]):
-            with patch('src.markdown_converter.cli.MainConverter') as mock_converter:
+            with patch('markdown_converter.cli.MainConverter') as mock_converter:
                 mock_converter.return_value.convert_file.return_value = MagicMock(
                     success=True,
                     input_file=sample_file,
@@ -86,7 +87,7 @@ class TestCLI:
         with patch('sys.argv', [
             'markdown-converter', 'convert', str(sample_file)
         ]):
-            with patch('src.markdown_converter.cli.MainConverter') as mock_converter:
+            with patch('markdown_converter.cli.MainConverter') as mock_converter:
                 mock_converter.return_value.convert_file.return_value = MagicMock(
                     success=True,
                     input_file=sample_file,
@@ -106,7 +107,7 @@ class TestCLI:
         with patch('sys.argv', [
             'markdown-converter', 'convert', str(sample_file)
         ]):
-            with patch('src.markdown_converter.cli.MainConverter') as mock_converter:
+            with patch('markdown_converter.cli.MainConverter') as mock_converter:
                 mock_converter.return_value.convert_file.return_value = MagicMock(
                     success=False,
                     error_message="Test error"
@@ -123,7 +124,7 @@ class TestCLI:
             'markdown-converter', 'batch', 
             str(sample_dir), str(output_dir)
         ]):
-            with patch('src.markdown_converter.cli.MainConverter') as mock_converter:
+            with patch('markdown_converter.cli.MainConverter') as mock_converter:
                 mock_converter.return_value.convert_directory.return_value = MagicMock(
                     total_files=3,
                     processed_files=2,
@@ -147,7 +148,7 @@ class TestCLI:
         with patch('sys.argv', [
             'markdown-converter', 'batch', str(sample_dir)
         ]):
-            with patch('src.markdown_converter.cli.MainConverter') as mock_converter:
+            with patch('markdown_converter.cli.MainConverter') as mock_converter:
                 mock_converter.return_value.convert_directory.side_effect = ConversionError("Test error")
                 
                 with pytest.raises(SystemExit):
@@ -216,7 +217,7 @@ class TestCLI:
             'markdown-converter', 'batch', str(sample_dir),
             '--workers', '4', '--batch-size', '50', '--max-memory', '1024'
         ]):
-            with patch('src.markdown_converter.cli.MainConverter') as mock_converter:
+            with patch('markdown_converter.cli.MainConverter') as mock_converter:
                 mock_converter.return_value.convert_directory.return_value = MagicMock(
                     total_files=3,
                     processed_files=3,
@@ -241,26 +242,26 @@ class TestCLIHelpers:
     
     def test_setup_logging(self):
         """Test logging setup."""
-        from src.markdown_converter.cli import setup_cli_logging
+        from markdown_converter.cli import setup_cli_logging
         setup_cli_logging(verbose=True, log_file=None, structured=False)
         # Just test that it doesn't raise an exception
     
     def test_load_config(self):
         """Test config loading."""
-        from src.markdown_converter.cli import load_config
+        from markdown_converter.cli import load_config
         config = load_config()
         assert isinstance(config, dict)
     
     def test_print_supported_formats(self, capsys):
         """Test printing supported formats."""
-        from src.markdown_converter.cli import print_supported_formats
+        from markdown_converter.cli import print_supported_formats
         print_supported_formats()
         captured = capsys.readouterr()
         assert "Supported Input Formats" in captured.out
     
     def test_print_processing_stats(self, capsys):
         """Test printing processing statistics."""
-        from src.markdown_converter.cli import print_processing_stats
+        from markdown_converter.cli import print_processing_stats
         stats = MagicMock(
             total_files=10,
             processed_files=8,
