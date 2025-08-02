@@ -6,8 +6,9 @@ using pdfplumber as the primary processor and PyMuPDF as a fallback.
 """
 
 import logging
+import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Tuple
 
 from ..core.exceptions import ParserError, UnsupportedFormatError
 from .base import BaseParser, ParserResult
@@ -39,27 +40,34 @@ class PDFParser(BaseParser):
             "use_pdfplumber": True,
             "pdfplumber_options": {
                 "extract_tables": True,
-                "extract_images": False,
+                "extract_images": True,  # Enhanced image extraction
                 "extract_text": True,
                 "table_settings": {
                     "vertical_strategy": "text",
                     "horizontal_strategy": "text",
                     "intersection_tolerance": 3,
+                    "min_words_vertical": 3,
+                    "min_words_horizontal": 1,
                 },
             },
             # Fallback processor (PyMuPDF)
             "use_pymupdf": True,
             "pymupdf_options": {
                 "extract_text": True,
-                "extract_images": False,
-                "extract_tables": False,
+                "extract_images": True,
+                "extract_tables": True,
                 "ocr_enabled": False,
             },
             # Output settings
-            "preserve_page_breaks": True,
+            "preserve_page_breaks": False,
             "extract_tables": True,
-            "extract_images": False,
-            "ocr_fallback": False,
+            "extract_images": True,
+            "preserve_layout": True,
+            "extract_metadata": True,
+            "extract_fonts": True,
+            # Performance settings
+            "max_pages_per_batch": 10,
+            "memory_limit_mb": 512,
         }
 
         # Merge with user config
@@ -70,7 +78,6 @@ class PDFParser(BaseParser):
         """Validate that required dependencies are available."""
         try:
             import pdfplumber
-
             self.pdfplumber_available = True
         except ImportError:
             self.pdfplumber_available = False
@@ -78,7 +85,6 @@ class PDFParser(BaseParser):
 
         try:
             import fitz  # PyMuPDF
-
             self.pymupdf_available = True
         except ImportError:
             self.pymupdf_available = False
@@ -145,6 +151,7 @@ class PDFParser(BaseParser):
 
         content_parts = []
         tables = []
+        images = []
         metadata = {
             "parser": "pdfplumber",
             "file_path": str(file_path),
@@ -155,6 +162,10 @@ class PDFParser(BaseParser):
         # Open PDF and extract content
         with pdfplumber.open(file_path) as pdf:
             metadata["page_count"] = len(pdf.pages)
+            
+            # Extract document metadata
+            if hasattr(pdf, 'metadata') and pdf.metadata:
+                metadata.update(self._extract_pdf_metadata(pdf.metadata))
 
             for page_num, page in enumerate(pdf.pages, 1):
                 self.logger.debug(f"Processing page {page_num}")
@@ -186,12 +197,19 @@ class PDFParser(BaseParser):
                                     }
                                 )
 
+                # Extract images if enabled
+                if self.default_config["extract_images"]:
+                    page_images = self._extract_images_from_page(page, page_num)
+                    images.extend(page_images)
+
         # Combine all content
         content = "\n".join(content_parts)
 
-        # Add table metadata
+        # Add metadata
         if tables:
             metadata["tables"] = tables
+        if images:
+            metadata["images"] = images
 
         return ParserResult(
             content=content, metadata=metadata, format="markdown", messages=[]
@@ -209,6 +227,8 @@ class PDFParser(BaseParser):
         self.logger.debug(f"Using PyMuPDF to parse {file_path}")
 
         content_parts = []
+        tables = []
+        images = []
         metadata = {
             "parser": "pymupdf",
             "file_path": str(file_path),
@@ -219,6 +239,11 @@ class PDFParser(BaseParser):
         # Open PDF and extract content
         doc = fitz.open(file_path)
         metadata["page_count"] = len(doc)
+
+        # Extract document metadata
+        doc_metadata = doc.metadata
+        if doc_metadata:
+            metadata.update(self._extract_pdf_metadata(doc_metadata))
 
         for page_num in range(len(doc)):
             page = doc.load_page(page_num)
@@ -231,25 +256,26 @@ class PDFParser(BaseParser):
                 content_parts.append(text.strip())
                 content_parts.append("")  # Add blank line
 
-        # Extract document metadata
-        doc_metadata = doc.metadata
-        if doc_metadata:
-            metadata.update(
-                {
-                    "title": doc_metadata.get("title", ""),
-                    "author": doc_metadata.get("author", ""),
-                    "subject": doc_metadata.get("subject", ""),
-                    "creator": doc_metadata.get("creator", ""),
-                    "producer": doc_metadata.get("producer", ""),
-                    "creation_date": doc_metadata.get("creationDate", ""),
-                    "modification_date": doc_metadata.get("modDate", ""),
-                }
-            )
+            # Extract tables using PyMuPDF
+            if self.default_config["extract_tables"]:
+                page_tables = self._extract_tables_pymupdf(page, page_num + 1)
+                tables.extend(page_tables)
+
+            # Extract images
+            if self.default_config["extract_images"]:
+                page_images = self._extract_images_pymupdf(page, page_num + 1)
+                images.extend(page_images)
 
         doc.close()
 
         # Combine all content
         content = "\n".join(content_parts)
+
+        # Add metadata
+        if tables:
+            metadata["tables"] = tables
+        if images:
+            metadata["images"] = images
 
         return ParserResult(
             content=content, metadata=metadata, format="markdown", messages=[]
